@@ -25,5 +25,5 @@ This is a baseline approach to review generation. It converts the PDF of a paper
 queries the LLM for a review with a single prompt.   
 Sample usage:
 ```bash
-python review_generation/0_pdf_review.py data/iclr_2024/KS8mIvetg2/9019_Proving_Test_Set_Contamin.pdf
+python review_generation/0_pdf_text_review.py data/iclr_2024/KS8mIvetg2/9019_Proving_Test_Set_Contamin.pdf
 ```

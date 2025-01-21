@@ -1,0 +1,29 @@
+Title: Simultaneous Generation and Improvement: A Unified RL Paradigm for FJSP Optimization
+
+Summary: 
+This paper presents an end-to-end reinforcement learning framework designed to tackle the Flexible Job Shop Problem (FJSP). The framework comprises two main components: a generative model that constructs solutions in a stepwise manner, and an improvement model that refines these solutions continuously. Remarkably, both models are trained concurrently, fostering mutual awareness and informed decision-making. The proposed approach is benchmarked against several public datasets, showing superior performance and better generalization to large-scale instances when compared to baseline algorithms. The authors propose that this training paradigm can be generalized to other combinatorial optimization problems like the Traveling Salesman Problem.
+
+Strengths: 
+1. Technical Innovation: The combination of a generative model and an improvement model for FJSP is an innovative approach that leverages deep reinforcement learning and graph neural networks effectively.
+2. State of the Art: The framework addresses the limitations of existing approximate methods and uses DRL to significantly improve computational efficiency and solution quality.
+3. Generalizability: The models demonstrate strong generalization by solving larger-scale instances despite being trained on smaller ones, a desirable property for real-world applications.
+4. Empirical Results: Extensive experiments show the efficacy of the proposed method over traditional heuristic and meta-heuristic methods, as well as existing DRL approaches used for FJSP.
+5. Ablation Studies: Detailed ablation studies offer insights into the contributions of individual components within the framework.
+
+Weaknesses: 
+1. Methodology Detailing: The operational details of the proposed models could be more thoroughly explained, especially the intricate mechanics of how the generative and improvement models interact.
+2. Baseline Comparisons: While some baselines are considered, the scope of baseline comparisons, especially against real-world industrial instances or more recent methods leveraging similar technologies, could be enhanced.
+3. Missing Experiments: The paper primarily employs synthetic datasets, and while public benchmarks are used, additional results on more diversified real-world scenarios could strengthen the empirical claims.
+4. Citations: A few references to key related works or emerging methods in reinforcement learning for scheduling problems might be missing, limiting the contextual breadth of the literature review.
+5. Clarity and Presentation: Some sections could benefit from clearer language and structuring that enhances the readability and comprehensibility of complex model architectures and training methodologies.
+
+Suggestions for improvement: 
+1. Provide clearer algorithmic descriptions and pseudo-codes to enhance clarity regarding the simultaneous operation of the generative and improvement models.
+2. Expand the empirical evaluation to include comparisons against more recent methodologies and industry-standard tools, potentially improving the paper’s competitive analysis.
+3. Incorporate experimental evaluations based on real-world scenarios and datasets to demonstrate the model’s practical applicability and performance robustness.
+4. Enhance the introduction and related work sections with more exhaustive citations and discussions around the latest advances in the RL-based combinatorial optimization domain.
+5. Improve the paper’s structure and language for stronger narrative coherence, presenting technical concepts and empirical results more engagingly.
+
+Overall recommendation: Accept
+
+This paper introduces a significant contribution to the field of combinatorial optimization through reinforcement learning, showing promising results on FJSP and potential applicability to related problems. While there are areas for improvement, particularly concerning empirical depth and methodological transparency, the technical innovation and demonstrated effectiveness warrant its acceptance to a top AI conference.

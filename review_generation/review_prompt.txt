@@ -1,4 +1,4 @@
-Please write a review of the following paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Your review should be structured as follows:
+Please write a review of the paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Your review should be structured as follows:
 
 Title: [Title of the paper]
 Summary: [Brief summary of the paper]

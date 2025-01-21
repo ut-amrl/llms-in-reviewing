@@ -4,14 +4,8 @@ import PyPDF2
 import os
 import sys
 
-def extract_text_from_pdf(pdf_path):
-    """Extracts text from a PDF file."""
-    with open(pdf_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text()
-    return text
+sys.path.append(os.getcwd())
+from util.util import extract_text_from_pdf, get_openai_api_key
 
 def generate_review(openai_api_key, text):
     current_file_path = os.path.abspath(__file__)
@@ -24,28 +18,14 @@ def generate_review(openai_api_key, text):
     review_response = openai.ChatCompletion.create(
         model="gpt-4o",
         messages=[
-            {"role": "system", "content": "You are an expert reviewer for conference papers."},
-            {"role": "user", "content": f"Write a detailed review for the following paper summary:\n{text}"},
+            {"role": "system", "content": "You are an expert reviewer for AI conference papers."},
+            {"role": "user", "content": f"Read the following paper, in preparation to review it:\n{text}"},
             {"role": "user", "content": f"{review_prompt}"}
         ]
     )
     review = review_response['choices'][0]['message']['content']
 
     return review
-
-def get_openai_api_key():
-    # First check if the API key is in the .openai_api_key file
-    api_key_file = ".openai_api_key"
-    if os.path.exists(api_key_file):
-        with open(api_key_file, "r") as file:
-            return file.read().strip()
-
-    # If not found, check for an environment variable named OPENAI_API_KEY
-    if "OPENAI_API_KEY" in os.environ:
-        return os.environ["OPENAI_API_KEY"]
-    
-    # If still not found, prompt the user to enter the API key
-    return input("Enter your OpenAI API key: ")
 
 def main():
     # Required argument: paper PDF path.
@@ -54,7 +34,6 @@ def main():
         return
 
     openai_api_key = get_openai_api_key()
-    print(f"Using OpenAI API key: {openai_api_key}")
 
     pdf_path = sys.argv[1]
     if not os.path.exists(pdf_path):
@@ -75,7 +54,7 @@ def main():
     with open(review_file_path, "w") as review_file:
         review_file.write(review)
 
-    print(f"Review has been saved as {review_file_path}.")
+    print(f"Review has been saved to {review_file_path}")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,26 @@
+Title: ASK AGAIN, THEN FAIL: LARGE LANGUAGE MODELS’ VACILLATIONS IN JUDGEMENT
+
+Summary: This paper investigates the judgment consistency of large language models (LLMs) like ChatGPT, PaLM2-Bison, and Vicuna-13B when exposed to follow-up questioning strategies inspired by educational techniques. The authors introduce a FOLLOW-UP QUESTIONING MECHANISM designed to assess LLMs' consistency when responding to closed-ended, open-ended, and leading questions. Their empirical results, documented across eight benchmarks, show that these models can be significantly influenced by skepticism or misleading prompts, revealing a notable decrease in judgment consistency. Furthermore, they explore the impact of different settings such as sampling temperature and prompt styles and suggest several prompting methods to improve judgment consistency.
+
+Strengths:
+1. **Relevance**: The paper tackles a pertinent issue concerning the reliability and stability of LLMs' judgement, crucial for their deployment in real-world applications.
+2. **Novelty**: The incorporation of educational questioning strategies to evaluate LLM judgment consistency is a novel approach, offering new insights into model behavior.
+3. **Comprehensive Analysis**: The study evaluates multiple models across various benchmarks, providing a holistic view of the problem's extent.
+4. **Mitigation Methods**: The exploration of prompting methods as potential solutions to enhance model consistency adds practical value to the research.
+5. **Impact on the Field**: This work highlights a critical limitation in current LLMs, fostering future research to improve robustness and reliability in AI systems.
+
+Weaknesses:
+1. **Methodological Clarity**: While the concept of questioning strategies is interesting, the paper could more thoroughly explain how these exact strategies were implemented to avoid ambiguity.
+2. **Lack of Baseline Comparisons**: The paper lacks a comparison with some existing baseline methods that address similar consistency issues, which may have contextualized the results better.
+3. **Error Analysis**: The error analysis, while insightful, could be expanded with more examples and more quantitative metrics to delineate error types and their frequencies more explicitly.
+4. **Generalization Beyond Models**: Although the study includes several LLMs, it doesn’t clearly address whether these findings generalize to other architectures influencing model biases.
+
+Suggestions for improvement:
+1. **Detailed Methodology**: Provide detailed descriptions of how the questioning strategies are operationalized, possibly with pseudocode or step-by-step breakdowns.
+2. **Inclusion of Baselines**: Add experiments that compare the judgment consistency against existing models and techniques, providing a benchmark for evaluating the proposed method.
+3. **Expanded Error Analysis**: Quantitative analysis of error types across datasets and more detailed examination of why certain errors occur would strengthen the findings.
+4. **Diversify Model Scope**: Extend the study to encompass a broader range of models and architectures to better understand the universality of the issue.
+
+Overall recommendation: Accept
+
+The paper addresses a crucial issue in the development and safe deployment of AI systems, providing novel insights and practical mitigation strategies, warranting acceptance at a top-tier AI conference. However, certain methodological clarifications and additional comparative baselines would strengthen its contributions.
