@@ -1,0 +1,28 @@
+Title: Proving Test Set Contamination in Black Box Language Models
+
+Summary: The paper presents a novel method for detecting test set contamination in large language models without having access to the pretraining data or the model weights. By leveraging the concept of data exchangeability, the authors propose a statistical test that compares the likelihood of a canonical ordering of a benchmark dataset to the likelihood after random shuffling. The results show that the test is effective in identifying test set contamination even in challenging scenarios, such as small datasets with low duplication rates. The paper includes empirical evaluations on a 1.4 billion parameter model trained with known contamination and audits popular language models for contamination.
+
+Strengths:
+1. **Technical Innovation**: The use of exchangeability to provide provable guarantees of test set contamination in black-box language models is a novel approach.
+2. **Empirical Validation**: The authors demonstrate the effectiveness of their method on a range of benchmarks and models, including both synthetic canaries and publicly available large models.
+3. **Relevance to Community**: The paper addresses an important concern in the community related to the transparency and reliability of language models' performance claims.
+4. **Robustness of Approach**: The tests are shown to be sensitive to contamination in scenarios where existing tests may fail, such as low duplication rates.
+5. **Potential Impact**: The proposed method could pave the way for independent audits of language models by third parties, increasing the accountability of model providers.
+
+Weaknesses:
+1. **Exchangability Assumption**: The method's reliance on exchangeability of datasets may limit its applicability, as real-world benchmarks may not meet this criterion.
+2. **Detection Limits**: The tests do not consistently detect contamination at a duplication rate of 1, leaving scope for optimization in single-instance detection.
+3. **Complexity of Implementation**: The proposed sharded test and its parameters may add complexity to implementation, which could deter practical applications.
+4. **Potential False Positives**: Especially for large datasets with non-exchangable data, there can be undetected false positives.
+5. **Comparisons to Baselines**: While comparisons with existing heuristics like Min-k%-Prob are mentioned, more detailed head-to-head comparisons could enhance the empirical evaluation.
+
+Suggestions for improvement:
+1. **Address Exchangability**: Explore ways to relax the exchangeability assumption or more explicitly address common cases where datasets may not be perfectly exchangeable.
+2. **Optimizing for Low Duplication Rates**: Investigate enhancements to detect contamination at lower duplication rates to make the method more robust.
+3. **Empirical Evaluation on More Models**: Extending the empirical tests to additional popular models and other language domains could strengthen the claims.
+4. **Detailed Comparison with Heuristics**: A more detailed empirical comparison with contemporary heuristic methods for test set contamination could provide a clearer understanding of relative strengths and weaknesses.
+5. **Clarify Real-World Applicability**: Provide more guidance on the practical implementation of the method, including computational costs and choice of hyperparameters.
+   
+Overall recommendation: Accept
+
+The paper presents a meaningful advancement in the detection of test set contamination with a well-justified novel methodological contribution. While there are areas for improvement, especially regarding the reliance on dataset exchangeability and detection limits, the overall contribution to the field is significant enough to merit acceptance at a top-tier conference.
