@@ -1,0 +1,8 @@
+Please write a review of the following paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Your review should be structured as follows:
+
+Title: [Title of the paper]
+Summary: [Brief summary of the paper]
+Strengths: [Strengths of the paper, including technical innovation, relation to state of the art, and empirical results]
+Weaknesses: [Weaknesses of the paper, including technical errors, errors in methodology, missing citations, weaknesses in empirical evaluation (missing baselines, metrics, or experiments), etc.]
+Suggestions for improvement: [Suggestions for improving the paper]
+Overall recommendation: [strong accept, accept, borderline, reject, strong reject]
