@@ -1,0 +1,29 @@
+**Title**: Proving Test Set Contamination in Black-Box Language Models
+
+**Summary**:  
+The paper presents a novel approach to detecting test set contamination in black-box language models without needing access to the pretraining data or model weights. The method exploits the statistical property of exchangeability in datasets to provide provable guarantees of contamination. By comparing the likelihoods of canonical and randomly shuffled dataset orderings, the authors claim the ability to identify contamination through a sharded log-likelihood comparison test. Experiments on controlled synthetic scenarios and real-world models demonstrate the method's sensitivity and potential utility for audit purposes.
+
+**Strengths**:  
+1. **Novel Approach**: The paper introduces an innovative method for contamination detection that leverages dataset exchangeability, offering a fresh perspective on addressing this issue in black-box models.
+2. **Provable Guarantees**: By basing the method on statistical principles, the authors claim more reliable detection with theoretical backing, providing clear false-positive rate guarantees.
+3. **Empirical Evaluation**: The paper demonstrates the method's effectiveness through comprehensive testing on both controlled canary datasets and publicly available large language models.
+4. **Applicability**: The proposed approach is applicable across different models and datasets, showing promise for future audits on proprietary models where training data is inaccessible.
+5. **Community Resource**: The release of pre-trained models and benchmarks as open resources encourages further research and improvement in this domain.
+
+**Weaknesses**:  
+1. **Limited Detection at Low Duplication Rates**: The method's inability to reliably detect contamination when a dataset is duplicated only once is a significant limitation, especially given its practicality in real-world scenarios.
+2. **Assumption of Exchangeability**: The reliance on dataset exchangeability may not hold in practice for all benchmarks, potentially limiting the method's applicability without explicit dataset construction details.
+3. **Lack of Direct Comparisons**: The paper lacks direct empirical comparisons with state-of-the-art heuristic methods in contamination detection, which could enhance the positioning of its advantages and weaknesses.
+4. **Dependence on Hyperparameters**: The method's sensitivity to the number of shards and permutations required for optimal performance raises concerns about its robustness without extensive fine-tuning.
+5. **Scope of Evaluation**: While the chosen datasets are standard, a broader and more diverse set of benchmarks could provide a stronger evaluation of the method's generalizability.
+
+**Suggestions for Improvement**:  
+1. **Comparison with Existing Methods**: Include direct comparisons and discussions with leading heuristic-based approaches to refine the method's comparative advantages.
+2. **Utility at Low Duplication Rates**: Explore strategies to make the approach more sensitive to single-duplication contamination scenarios or discuss its practical implications more comprehensively.
+3. **Broader Dataset Evaluation**: Extend the empirical evaluation to include a wider variety of datasets, possibly including dynamic or non-traditional datasets, to test the method's robustness across diverse scenarios.
+4. **Detailed Assumption Analysis**: Provide a more thorough discussion on the assumption of exchangeability and potential strategies to address non-exchangeable datasets, possibly through additional preprocessing steps.
+5. **Hyperparameter Robustness**: Evaluate the robustness of the method across different shard and permutation settings, possibly with additional experiments to minimize the impact of these hyperparameters.
+
+**Overall Recommendation**: Borderline
+
+The paper presents a novel and potentially impactful approach to a significant problem in the field, offering theoretical and practical contributions. However, limitations in detection sensitivity at low duplication levels and the need for broader evaluation metrics and comparisons temper its applicability and robustness claims. With further development and evaluation against contemporary methods, the potential for broader acceptance and impact is stronger.

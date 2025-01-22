@@ -1,0 +1,959 @@
+system: You are an expert reviewer for AI conference papers.
+user: Read the following paper, in preparation to review it. Maintain healthy scientific skepticism, don't assume that the claims in the paper are necessarily correct, and check everything carefully:
+PROVING TESTSETCONTAMINATION IN
+BLACK BOXLANGUAGE MODELS
+Yonatan Oren1∗, Nicole Meister1∗, Niladri Chatterji1∗, Faisal Ladhak2, Tatsunori B. Hashimoto1
+1Stanford University,2Columbia University
+yonatano@cs.stanford.edu
+{nmeist, niladric, thashim }@stanford.edu
+faisal@cs.columbia.edu
+ABSTRACT
+Large language models are trained on vast amounts of internet data, prompting
+concerns and speculation that they have memorized public benchmarks. Going
+from speculation to proof of contamination is challenging, as the pretraining data
+used by proprietary models are often not publicly accessible. We show that it is
+possible to provide provable guarantees of test set contamination in language mod-
+els without access to pretraining data or model weights. Our approach leverages
+the fact that when there is no data contamination, all orderings of an exchange-
+able benchmark should be equally likely. In contrast, the tendency for language
+models to memorize example order means that a contaminated language model
+will find certain canonical orderings to be much more likely than others. Our
+test flags potential contamination whenever the likelihood of a canonically or-
+dered benchmark dataset is significantly higher than the likelihood after shuffling
+the examples. We demonstrate that our procedure is sensitive enough to reliably
+prove test set contamination in challenging situations, including models as small
+as 1.4 billion parameters, on small test sets of only 1000 examples, and datasets
+that appear only a few times in the pretraining corpus. Using our test, we audit
+four popular publicly accessible language models for test set contamination and
+find little evidence for pervasive contamination.
+1 I NTRODUCTION
+Large language models (LLMs) have driven remarkable improvements on a number of natural lan-
+guage processing benchmarks (Wang et al., 2019) and professional exams (OpenAI, 2023). These
+gains are driven by large-scale pretraining on massive datasets collected from the internet. While
+this paradigm is powerful, the minimal curation involved has led to growing concerns of dataset
+contamination, where the pretraining dataset contains various evaluation benchmarks. This con-
+tamination leads to difficulties in understanding the true performance of language models – such as
+whether they simply memorize the answers to difficult exam questions. Disentangling the effects
+of generalization and test set memorization is critical to our understanding of language model per-
+formance, but this is becoming increasingly difficult as the pretraining datasets are rarely public for
+many of the LMs deployed today.
+Although there is ongoing work by LLM providers to remove benchmarks from pre-training datasets
+and perform dataset contamination studies, such filtering can fail due to bugs (Brown et al., 2020a),
+be limited to a select set of benchmarks (Brown et al., 2020a; Wei et al., 2021; Chowdhery et al.,
+2022), and requires trust in these vendors. Increasing competitive pressures have also led to some
+recent model releases to include no contamination studies at all (OpenAI, 2023). These factors make
+it critical for us to be able to audit existing language models for the presence of benchmark datasets
+without the cooperation of language model providers.
+In parallel to contamination studies, there has been a growing literature on heuristic membership
+inference algorithms, that seek to reverse engineer aspects of the pretraining dataset (Carlini et al.,
+*Equal technical contribution, first author was the project lead.
+1Figure 1: Given a pre-training dataset contaminated with the BoolQ(Clark et al., 2019) test set
+(left), we detect such contamination by testing for exchangability of the dataset (right). If a model
+has seen a benchmark dataset, it will have a preference for the canonical order (i.e. the order that
+examples are given in public repositories) over randomly shuffled examples orderings. We test for
+these differences in log probabilities, and aggregate them across the dataset to provide false positive
+rate guarantees.
+2019; Mattern et al., 2023) as well as provide some evidence for test set contamination (Sainz et al.,
+2023; Golchin & Surdeanu, 2023). However, the heuristic nature of these methods limits their
+usefulness, as these methods cannot elevate speculation about a suspected instance of test set con-
+tamination into an irrefutable proof of contamination.
+In this work, we show it is possible to go beyond heuristics and provide provable guarantees of test
+set contamination in black box language models. More specifically, we provide a statistical test
+that can identify the presence of a benchmark in the pre-training dataset of a language model with
+provable false positive rate guarantees and without access to the model’s training data or weights.
+To achieve these guarantees, we exploit the fact that many datasets have a property known as ex-
+changeability , where the order of examples in the dataset can be shuffled without affecting its joint
+distribution. Our key insight is that if a language model shows a preference for any particular or-
+dering of the dataset – such as a canonical ordering that appears in publicly available repositories –
+this violates exchangeability and can only occur by observing the dataset during training (Figure 1).
+We leverage this insight to propose a set of tests that compares the language model’s log probabil-
+ity on the ‘canonical’ ordering (taken from public repositories) to the log probability on a dataset
+with shuffled examples, and flag a dataset if the two log probabilities have statistically significant
+differences.
+Using these ideas, we propose a computationally efficient and statistically powerful test for con-
+tamination which shards the dataset into smaller segments and performs a series of log probability
+comparisons within each shard. We prove that this sharded test provides control over the false pos-
+itive rate, enables computationally efficient parallel tests, and substantially improves the power of
+the test for small p-values.
+We evaluate our statistical test on a 1.4 billion parameter language model trained on a combination
+of Wikipedia and a curated set of canary test sets. Our test is sensitive enough to identify test sets
+with as few as 1000 examples, and sometimes even appearing only twice in the pretraining corpus.
+In the case of higher duplication counts, such as datasets appearing 10 or more times, we obtain
+vanishingly small p-values on our test. Finally, we run our test on four commonly used, public
+language models to study the behavior of our test on language models in the wild and find little
+evidence of pervasive and strong test set contamination.
+We summarize our contributions below.
+• Demonstrating the use of exchangability as a way to provably identify test set contamina-
+tion using only log probability queries.
+• Construction of an efficient and powerful sharded hypothesis test for test set contamination.
+• Empirical demonstration of black-box detection of contamination for small datasets that
+appear few times during pretraining.
+2Our three contributions suggest that black-box identification of test set contamination is practical
+and further improvements in the power of the tests may allow us to regularly audit language models
+in the wild for test set contamination. To encourage the development of new provable guarantees
+for test set contamination, we release our pretrained models as a benchmark for developing future
+statistical tests.1.
+2 P ROBLEM SETTING
+Our high-level goal is to identify whether the training process of a language model θincluded dataset
+X. In our setting, the only method we have to study θis through a log probability query logpθ(s)for
+a sequence s(i.e. no access to dataset or parameters). This setting mirrors many common situations
+with API-based model providers (Brown et al., 2020b; Bai et al., 2022) and matches an increasing
+trend where the training data is kept secret for ‘open’ models (Touvron et al., 2023; Li et al., 2019).
+Provably identifying test set contamination can be viewed as a hypothesis test in which the goal is
+to distinguish between two hypotheses:
+•H0:θis independent of X
+•H1:θis dependent on X
+where we treat θas a random variable whose randomness arises from a combination of the draw
+of the pretraining dataset (potentially including X) and we will propose a hypothesis test with the
+property that it falsely rejects the null hypothesis H0with probability at most α.
+False positives under H0In most cases, we can make use of a property of a dataset known as
+exchangeability to obtain our false positive guarantee. Nearly all datasets can be expressed as a
+collection of examples X:={x1. . . x n}where the ordering of the examples are unimportant, and
+the probability of any ordering would be equally likely (i.e. p(x1. . . x n) =p(xπ1. . . x πn)for any
+permutation π). Notably, this assumption would hold under the standard assumption that the dataset
+is a collection of i.i.d examples.
+Whenever exchangability of the dataset holds, the log probabilities of the model under H0must have
+a useful invariance property,
+Proposition 1. Let seq (X)be a function that takes a dataset Xand concatenates the examples to
+produce a sequence, and let Xπbe a random permutation of the examples of Xwhere πis drawn
+uniformly from the permutation group. For an exchangeable dataset Xand under H0,
+logpθ(seq(X))d= log pθ(seq(Xπ)).
+Proof This follows directly from the definitions of exchangability and H0. Since Xis ex-
+changable, seq (X)d=seq(Xπ)and by the independence of θfrom Xunder H0, we know that
+(θ,seq(X))d= (θ,seq(Xπ)). Thus, the pushforward under logpθ(seq(X))must have the same
+invariance property.
+Proposition 1 is the basic building block of our tests. It implies that the log probabilities of X
+under H0have the same distribution when shuffled, and this permutation invariance will enable us
+to directly apply standard results on constructing permutation tests (Lehmann & Romano, 2005).
+Detection rate under H1The false positive rate guarantee holds with extremely weak assump-
+tions, but a useful test should also have high power, meaning that it should have a high detection
+rate under H1. We cannot hope for high detection rate without further assumptions. For instance,
+an adversary may hide an encrypted copy of Xwithin the parameters of the model (which would
+induce a clear dependence between the model and X) but it would be nearly impossible for us to
+detect such a situation even with weight access.
+1https://github.com/tatsu-lab/test_set_contamination
+3However, most existing forms of contamination are benign . In the benign contamination setting we
+consider, pretraining datasets become contaminated when test sets accidentally slip through filtering
+mechanisms Brown et al. (2020a). In this case, we have a reasonable expectation that the invariance
+in proposition 1 will be violated and logpθ(seq(X))≫logpθ(seq(Xπ))as the language model θis
+explicitly trained to maximize the log-likelihood over its training data, including seq (X). The vio-
+lation of exchangability allows us to reliably detect test set contamination, and the existing literature
+on memorization (Carlini et al., 2021) suggests that many models may verbatim memorize the order
+of examples in a benchmark dataset. We now focus on building tests that can reliably identify this
+form of memorization.
+3 M ETHODS
+The core idea of our statistical test is to compare the log probability of the dataset under its original
+ordering to the log probability under random permutations. We begin by describing the basic version
+of this idea, which directly implements a permutation test on the log probabilities. We then identify
+some drawbacks of this approach and describe a sharded test which improves the statistical power
+and computational efficiency of the test.
+3.1 A PERMUTATION TEST FOR CONTAMINATION
+Under the null hypothesis, the likelihood under the model of any permutation of the dataset Xπhas
+the same distribution, and thus the rank of logpθ(seq(X))among any set of randomly permuted
+probabilities {logpθ(seq(Xπ1)). . .logpθ(seq(Xπn))}will be a uniform random variable over [n+
+1](Lehmann & Romano, 2005, Theorem 15.2.2).
+This can be used directly to construct a permutation test. Consider the proportion of permuted copies
+ofXwith lower log-likeihood than the canonical ordering under the model,
+p:=E[ 1{logpθ(seq(X))<logpθ(seq(Xπ))}].
+The distribution of pwill be uniform under H0, and we can test for contamination at a significance
+levelαby rejecting H0when p < α . In practice, computing this expectation over all πis intractable,
+and we replace this with a Monte Carlo estimate and the appropriate finite-sample correction (Phip-
+son & Smyth, 2010), which gives
+ˆp:=Pm
+i=11{logpθ(seq(X))<logpθ(seq(Xπm))}+ 1
+m+ 1.
+This test is simple and straightforward to implement, and the validity of this test when rejecting at
+ˆp≤αis clear from standard results on permutation testing (Lehmann & Romano, 2005; Phipson &
+Smyth, 2010). However, this test suffers from a major drawback in its Monte Carlo implementation
+– the runtime of the test in terms of the number of log probability computations is O(m|X|)for a
+sequence of length |X|and the p-value can never be below 1/(m+ 1). For hypothesis tests that aim
+to reject at very low p-values (or with substantial multiple hypothesis testing corrections), this poses
+a tradeoff between statistical power and computational requirements.
+3.2 A SHARDED LIKELIHOOD COMPARISON TEST FOR CONTAMINATION
+What are some drawbacks of the naive permutation test? It has an undesirable tradeoff between
+statistical power and computational requirements for small α, and also requires that the model assign
+higher likelihood to the canonical ordering Xthan nearly allshuffled orderings of Xπ. This latter
+condition can also be a serious problem, as the model may have biases the prefer certain orderings
+(e.g. ones that place duplicate examples next to each other) regardless of the order seen during
+training.
+A more likely assumption would be that the log-probability under the canonical ordering Xis higher
+than the average log probability under a random permutation. That is, instead of relying on the
+quantile E[ 1{logpθ(seq(X))<logpθ(seq(Xπ))}], can we instead perform multiple log probability
+comparisons of the form logpθ(seq(X))<E[logpθ(seq(Xπ))]?
+4We show that this is possible and the resulting test resembles a series of log probability comparisons
+followed by a t-test to aggregate these results. More specifically, we will partition the examples
+X1,···, Xnintorcontiguous shards S1. . . S rformed by grouping together adjacent examples
+S1= (X1, X2,···, Xk)
+where each shard Sicontains at least k=n/rexamples.
+Then, we will permute the examples within each shard and compare the likelihood of the canonical
+ordering to a Monte Carlo estimate of the average likelihood of the shuffled ordering as
+si:= log pθ(seq(X))−Mean π(logpθ(seq(Xπ))).
+Finally, to construct the test, we aggregate these shard statistics sivia the mean s=1
+rPr
+i=1siand
+test for whether sis zero-mean using a t-test.
+This statistical test, whose pseudocode is given in Algorithm 1, addresses the shortcoming of the
+permutation test by converting a single rank comparison into a collection of log probability com-
+parisons. The t-test based approach also requires O(m|X|)runtime for mpermutations, but there
+is no 1/mminimum p-value, and in practice we find that the p-values obtained by this approach
+decay rapidly, as it only requires that the language models consistently assign higher-than-average
+log probabilities to the canonical ordering, rather than requiring that the canonical log probability
+be in the tails of the permutation null distribution.
+Algorithm 1 Sharded Rank Comparison Test
+Require: Test set examples x1, . . . , x n
+Require: Target model θ
+Require: Number of shards r
+Require: Number of permutations per shard m
+1:Partition the examples into shards S1, S2,···, Sr, where each shard has at least ⌊n/r⌋exam-
+ples, and one extra example is added to the first nmod rshards.
+2:foreach shard Sido
+3: Compute the log-likelihood of the canonical order:
+l(i)
+canonical := log pθ(seq(x(i)
+1, x(i)
+2,···, x(i)
+k))
+4: Estimate l(i)
+shuffled :=Mean π[logpθ(seq(x(i)
+π(1),···, x(i)
+π(k)))]by computing the sample average
+overmrandom permutations π.
+5: Compute si=l(i)
+canonical −l(i)
+shuffled
+6:end for
+7:Define s=1
+rPr
+i=1sithe sample average over the shards.
+8:Run a one-sided t-test for E[si]>0, returning the associated p-value of the test as p.
+Under the null, we expect sto be the sum of independent random variables and we can now show
+that the overall test provides a false positive rate guarantee.
+Theorem 2. Under the null hypothesis, an i.i.d dataset X, and finite second moments on logθ(S),
+|P(p < α )−α| →0
+asm→ ∞ andpis defined as the p-value in Algorithm 1.
+Proof The result follows directly from the combination of Theorem 1 and standard invari-
+ance results in (Lehmann & Romano, 2005). First, by Theorem 1, note that the distribution of
+logpθ(seq(x(i)
+π(1),···, x(i)
+π(k))is invariant to the permutation π.
+By Lehmann & Romano (2005, Theorem 15.2.2), this guarantees that the permutation distribution
+is uniform over the support, and the statistic simust be zero-mean. Next, we note that each
+shard is independent, as each example is split independently into a separate shard with no overlap.
+By independence and the finite second moment condition, s→N(0, σ2/√m)under the null
+by the central limit theorem and a one sided t-test provides asymptotically valid p-values with
+5P(p < α )→αuniformly as m→ ∞ (Lehmann & Romano, 2005, Theorem 11.4.5).
+This result ensures that the sharded rank comparison test also provides (asymptotic) guarantees on
+false positive rates, much like the permutation test. The test we propose here has two small dif-
+ferences relative to the permutation test – it provides asymptotic, rather than finite-sample valid
+p-values and assumes i.i.d Xfor the proof. These conditions could be relaxed by the use of Berry-
+Esseen bounds to obtain finite-sample convergence rates for the CLT as well as replacing our use
+of a standard central limit theorem with one applicable to the sums of exchangable random vari-
+ables. However, we opted to present the simpler asymptotic test given the frequent use of i.i.d data
+generation assumption in the literature as well as the fast convergence of the CLT in practice.
+4 E XPERIMENTS
+We now demonstrate that our test is effective for detecting many common forms of test set contam-
+ination. We begin by training a 1.4 billion parameter language model, consisting of both Wikipedia
+and a known collection of exchangeable test sets. These canaries serve as positive controls for our
+test, and our goal will be to flag as many of these as possible. Having validated the test in a setting
+with known contamination, we then explore its use with existing open models.
+4.1 P RETRAINING WITH INTENTIONAL CONTAMINATION
+Datasets and training To validate our test statistic, we train a 1.4 billion parameter GPT-2 model
+from scratch with a combination of standard pretraining data (Wikitext, taken from the RedPajama
+corpus (Together Computer, 2023)) and known test sets. We derive 10 test sets from numerous
+standard datasets (BoolQ (Clark et al., 2019), HellaSwag (Zellers et al., 2019), OpenbookQA (Mi-
+haylov et al., 2018b), MNLI (Williams et al., 2018), Natural Questions (Kwiatkowski et al., 2019a),
+TruthfulQA (Lin et al., 2022), PIQA (Bisk et al., 2019), MMLU (Hendrycks et al., 2021)), and sub-
+sample the datasets to around 1000 examples to ensure that the test sets remain a small part of the
+overall pretraining dataset (See Table 1 for exact sizes). While we do not know if these datasets
+are exchangable when they were constructed, we can make them exchangable simply by applying a
+random shuffle to the dataset, which would make all orderings of the examples equally likely.
+To test our ability to detect benchmarks at various duplication rates, we duplicate each of the datasets
+a different number of times - ranging from 1 to 100 (See Table 1). The overall pretraining dataset
+has 20.2B tokens, with 20M tokens associated with some benchmark dataset.
+Test parameters The sharded rank comparison test requires two additional parameters: the shard
+count mand the permutation count r. Thoughout these experiments we use m= 50 shards and
+r= 51 permutations. In our ablations below, we found that the tests are not particularly sensitive to
+these parameters, and we fix these parameters to avoid the possibility of p-hacking.
+Canary Results In Table 1, we find that our test is highly sensitive, and provides near-zero p-
+values at duplication rates of 10 or above. These detections hold for relatively small datasets ( ≤1000
+examples) and for a modestly sized language model with 1.4 billion parameters. Given that many
+test sets are much larger in practice, and many language models of interest are much larger and
+memorize more aggressively (Carlini et al., 2019), these findings suggest that our test is likely to
+detect contamination in practice.
+While the permutation test attains significance (at a typical α= 0.05, say) for all benchmarks
+duplicated at least 10 times, the p-values are bounded below by 1/(1 + r), where the number of
+permutations rused here is 100. Results for our sharded test use r= 50 ; even with half the
+compute, the sharded test attains comparable performance for benchmarks with small duplication
+rate. However, the p-values attained by the sharded test for moderate to high duplication rates are
+vanishingly small.
+Attaining comparably low p-values using the permutation test is computationally infeasible. For
+example, to allow for the possibility of a p-value as low as 1.96e-11 (matching the MNLI result)
+would require permuting the dataset 1011times, and as many forward passes of the model.
+6Table 1: We report the results of training a 1.4B language model from scratch on Wikitext with
+intentional contamination. For each injected dataset, we report the number of examples used (size),
+how often the test set was injected into the pre-training data (dup count), and the p-value from the
+permutation test and sharded likelihood comparison test. The bolded p-values are below 0.05and
+demonstrate in the case of higher duplication counts, such as datasets appearing 10 or more times,
+we obtain vanishingly small p-values on our test. Finally, rows marked 1e-38 were returned as
+numerically zero due to the precision of our floating point computation.
+Name Size Dup Count Permutation p Sharded p
+BoolQ 1000 1 0.099 0.156
+HellaSwag 1000 1 0.485 0.478
+OpenbookQA 500 1 0.544 0.462
+MNLI 1000 10 0.009 1.96e-11
+TruthfulQA 1000 10 0.009 3.43e-13
+Natural Questions 1000 10 0.009 1e-38
+PIQA 1000 50 0.009 1e-38
+MMLU Pro. Psychology 611 50 0.009 1e-38
+MMLU Pro. Law 1533 50 0.009 1e-38
+MMLU H.S. Psychology 544 100 0.009 1e-38
+Although our test is unable to detect contamination at a duplication rate of 1, other existing literature
+on memorization has suggested that detection at this duplication level is extremely difficult. Prior
+work has found that existing tests of memorization begin to work with 10-30 duplicates (Carlini
+et al., 2021), that deduplicated text is hard to extract (Kandpal et al., 2022), and that dataset con-
+tamination with a duplication rate of 1 barely affects downstream benchmark performance (Magar
+& Schwartz, 2022).
+Power as a function of duplication rate. We carefully study the lowest duplication rate for which
+our test can reliably detect contamination. To do this, we perform the above canary study but with
+duplication rates ranging from 1 to 7, and we show the aggregate log p-values for each duplication
+rate in Figure 2. We find that we cannot reliably detect duplication rates of 1, but that at counts of
+2 and 4 we begin to detect some test sets (gray points below the dashed line) and that the detection
+threshold is around a duplication rate of 4. This suggests that even small amounts of dataset du-
+plication would be sufficient for detection, and future improvements to the power of this test could
+enable reliable detection at much lower duplication rates.
+Figure 2: For a model pre-trained with canary datasets injected at a duplication count of 1, 2, 4, and
+7, we plot the log p-value against dataset duplication count to quantify how the test’s power depends
+on dataset duplication count.
+A public benchmark of provable test set contamination Our work demonstrates that exploiting
+exchangability allows us to provably detect test set contamination even for small, low-duplication
+count datasets. However, it is an open question whether there are tests that can reliably detect
+contamination at a duplication rate of 1. To support future work on this open problem, we release
+7our pre-trained models trained on Wikitext mixtures together with the corresponding canary test
+sets2.
+In addition to the release, we will maintain a leaderboard of methods that provide (asymptotically
+valid) p-values, ranking methods by the average log p-value. We hope that the model and bench-
+mark spurs further development of tests for contamination, and encourage members of the research
+community to improve on our results for low duplication counts.
+4.2 S HARDING AND PERMUTATION COUNT
+Our test relies on two parameters – the number of shards in the test, and the number of permutations
+to sample. Both of these affect the power of the test, and we carefully study the impact of these
+parameters on our ability to detect test sets by evaluating our pre-trained model on the 6 datasets that
+contain 1000 examples (BoolQ, HellaSwag, MNLI, NaturalQuestions, TruthfulQA, PIQA). For the
+number of shards, we explore a range of settings, from 10 shards to 200 shards and for permutations
+we test a range from 1 to 50 permutations.
+Shard sensitivity Our results in Figure 3a show that there is a sweet spot to the number of shards,
+around 10-20 shards, where our detection rate for test sets are maximized. Larger numbers of shards
+perform worse, since each shard involves fewer examples. Shards below 10 do not perform well, as
+this is likely too few samples to merit the use of an asymptotically valid test like the t-test.
+(a) So long as each shard contains enough exam-
+ples and enough shards are used, the p-value is
+stable under variations of the number of shards r.
+We plot the average log p-value of those six of our
+pre-trained model benchmarks with 1,000 exam-
+ples, varying the number of examples per shard.
+0 10 20 30 40 50
+Permutations per Shard4.0
+3.5
+3.0
+2.5
+Average log p-value
+Average log p-value vs. Permutations per Shard(b) Increasing the permutation count improves the
+estimate of the mean log-likelihood of the shard
+under permutation, but we find that the p-value
+stabilizes at around 25 shuffles. We plot the aver-
+age logarithm of the p-value(s) of 6 datasets eval-
+uated on our pretrained model as a function of per-
+mutations per shard.
+Figure 3: Impact of varying shard and permutation counts on test performance.
+Permutation count sensitivity We also measure the dependence of our test on the number of
+permutations per shard in Figure 3b, and find more permutations to generally improve the power
+of our test. We test permutations of 1, 2, 10, 25, 50 and compute the average log p-value of the 6
+datasets evaluated on the pretrained model. In practice we find that there is substantial diminishing
+returns beyond 25 permutations in the t-test. This stands in stark contrast to the permutation test,
+where a permutation count of 25 would only allow for a minimum p-value of 0.038.
+4.3 E VALUATING EXISTING MODELS FOR DATASET CONTAMINATION
+We now demonstrate the utility of our procedure in validating test set contamination in multiple
+publicly available language models: LLaMA2 (Touvron et al. (2023)), Mistral-7B (Mistral (2023)),
+Pythia-1.4B (Biderman et al. (2023)), and GPT-2 XL (Radford et al. (2018)), on eight public test
+benchmarks: AI2-Arc (Clark et al. (2018)), BoolQ (Clark et al. (2019)), GSM8K (Cobbe et al.
+2
+8(2021)), LAMBADA (Paperno et al. (2016)), NaturalQA (Kwiatkowski et al. (2019b)), Open-
+BookQA (Mihaylov et al. (2018a)), PIQA (Bisk et al. (2019)), and MMLU (Hendrycks et al. (2021)).
+Computationally, we find that our test runs reasonably quickly for a 7 billion parameter model, al-
+lowing for the testing of 65 files for contamination in under 24 hours using 50 shards with 250
+permutations per shard, and we find that the test outcomes are in general agreement with the con-
+tamination study results of Brown et al. (2020c) and Touvron et al. (2023): we do not find evidence
+of pervasive verbatim test set contamination across the models and benchmarks we tested.
+Table 2: P-values for contamination tests on open models and benchmarks. With the exception of
+ARC for Mistral, none of the tests give evidence for contamination. The MMLU results are marked
+with a †to indicate that the p-values are the result of p-value aggregating the constituent datasets of
+MMLU after heuristic filtering for non-exchangable datasets (see main text). The resulting LLaMA2
+and Mistral p-values are small, consistent with the contamination studies in Touvron et al. (2023)
+identifying mild MMLU contamination.
+Dataset Size LLaMA2-7B Mistral-7B Pythia-1.4B GPT-2 XL BioMedLM
+Arc-Easy 2376 0.318 0.001 0.686 0.929 0.795
+BoolQ 3270 0.421 0.543 0.861 0.903 0.946
+GSM8K 1319 0.594 0.507 0.619 0.770 0.975
+LAMBADA 5000 0.284 0.944 0.969 0.084 0.427
+NaturalQA 1769 0.912 0.700 0.948 0.463 0.595
+OpenBookQA 500 0.513 0.638 0.364 0.902 0.236
+PIQA 3084 0.877 0.966 0.956 0.959 0.619
+MMLU†– 0.014 0.011 0.362 – –
+We tested five models for contamination by eight publicly available benchmarks and list the results in
+Table 2. We use 50 shards and 250 permutations per shard throughout the experiments. For test sets
+containing more than 5,000 examples, we truncate and test only the first 5,000. Benchmark datasets
+in the wild may contain non-exchangable elements such as sequential indexes or duplicate examples
+which would break the false positive guarantees of our test. To check for these possibilities we
+manually inspected each dataset for non-exchangable elements, and also run our tests on a ‘negative
+control’ of BioMedLM (Bolton et al., 2022), a language model trained exclusively on PubMed data
+and known not to contain the benchmarks used here. The p-values computed for BioMedLM are not
+significant across the benchmarks shown here, suggesting that any significant results for the other
+models tested are not simply due to non-exchangeability.
+Our results in Table 2 show non-significant results across most models and datasets. While failure to
+reject the null hypothesis is not direct evidence in favor of the null, our synthetic canary evaluations
+from section 4.1 suggest that it is unlikely for these models to have seen most of these test sets
+more than 2 to 10 times. One notable exception is AI2-ARC on Mistral, which does return a low
+p-value of 0.001 and could suggest some contamination. While this p-value appears small, we
+caution the reader that applying a multiple hypothesis test corection would imply that 0.001 is right
+at the boundary of statistical significance, and due to challenges with garden-of-forking-paths type
+analysis, significance tests that are at the boundary of the rejection cutoff should be interpreted
+cautiously. We present these results as showing promising first steps towards third-party audits of
+test set contamination, rather than a direct proof of contamination of specific models.
+We additionally discuss contamination tests on MMLU, which was identified as a potential con-
+taminant in recent studies (Touvron et al. (2023)), and involves important details. MMLU is not
+a single test set, but rather a collection of test sets. We speculate that at least 14 of the test sets
+are non-exchangeable, and applying our test directly would break the false positive guarantees. To
+understand if our tests can still provide some insights into contamination, we run our MMLU test
+with a non-exchangability filtering criterion.
+To evaluate models for contamination by MMLU, we first exclude those 14 test files from con-
+sideration for which our test flags either BioMedLM or GPT-2 as contaminated (both are negative
+controls as the GPT-2 family of models predates MMLU). We run our test on each of the 43 remain-
+ing test files (with 1000 permutations, due to the small size of each file) and aggregate the p-values
+9using Fisher’s method (Fisher (1934)). Although the omnibus p-values resulting from this proce-
+dure can no longer provide a proof of contamination (due to non-independence and heuristic nature
+of the fitering step), their magnitude serves as heuristic evidence for contamination. The resulting
+p-values and empirical CDFs (Figure 4) of the 43 test sets are indicate mild deviation from the null
+hypothesis, consistent with the findings of mild test set contamination in Touvron et al. (2023).
+5 R ELATED WORK
+Our work relates to a large literature on data memorization, privacy, and membership inference
+attacks for large language models. We discuss some of the most relevant works to ours below.
+There is a substantial literature studying memorization of data in large language models, often from
+the privacy perspective (Carlini et al., 2021; 2019; Kandpal et al., 2022; Mattern et al., 2023; Carlini
+et al., 2023). Most of these works have focused on analyses of what is memorized and whether pri-
+vate information can be extracted from a large language model, but do not build tests to specifically
+identify test set contamination. Our work has a narrower focus on test set contamination, but this
+also allows us to build tests that provide more precise guarantees of contamination.
+Data contamination has been studied in many contexts, including in the study of pretraining corpora
+((Dodge et al., 2021)) as well as in the analysis section of many language model papers (Hoffmann
+et al., 2022; Brown et al., 2020a; Gao et al., 2020). The n-gram based analyses in these papers can
+shed light on contamination, but they can have high false positives (e.g. SQuAD (Rajpurkar et al.,
+2016) containing Wikipedia) and are limited to those datasets chosen for analysis. Our approach
+enables third party tests of dataset contamination with only access to log probabilities, enabling
+broader testing, without having to trust the model provider.
+For third-party tests of contamination, there have been a few recently proposed heuristics. Sainz et al.
+(2023) propose to identify test set contamination in GPT-3 and GPT-4 by prompting the models to
+generate verbatim examples from a test set. The contemporaneous work of Golchin & Surdeanu
+(2023) similarly proposes to identify contamination in black-box models by prompting a model to
+generate completions of random example prefixes and using GPT-4 to judge the closeness between
+the completion and the ground truth. Min-k%-Prob (Shi et al. (2024)) indicates contamination when
+the average of the k% tokens with lowest probablity in the test set is high. We report the results of
+Min-k%-Prob using the same setup as in the canary experiments of section 4.1 (see the appendix),
+and find strong and reliable detection for a duplication count of 10 and above, and detection at
+duplication counts as low as 4. We note that while these approaches are efficient and do not require
+access to pre-training data, they do not enjoy the same provable false-positive guarantees of our
+work.
+Closest to our work is the exposure statistic in Carlini et al. (2019) and other subsequent variations
+(Mattern et al. (2023)), which tests the perplexity differences between a target sequence and random
+sequences. The idea of comparing the rank of the target log probability to some baseline distribution
+is similar to our work. However, our work is distinct in using the exchangability of datasets to obtain
+an exact null distribution (giving us provable guarantees when identifying contamination) and in
+developing a sensitive and efficient shard-based test.
+Beyond language modeling, identifying the presence of a particular set of examples in the training
+data of a machine learning model is related to the security and privacy topic of membership inference
+(Shokri et al. (2017); Mattern et al. (2023)). Our work contributes to this literature by developing a
+new form of membership inference attack that leverages the exchangability of benchmark datasets.
+6 L IMITATIONS
+We highlight a few limitations of our approach for detecting test set contamination. First, the p-
+values presented in this paper do not have multiple test corrections applied, as it is difficult to define
+the ‘total number of hypotheses’ tested throughout development.
+Second, any application of this test in practice will likely involve taking an off-the-shelf benchmark
+dataset X, for which it will be difficult to know if the dataset is truly exchangable. Heuristic negative
+controls such as our BioMedLM experiments can be helpful, but we cannot ever prove that a dataset
+10is exchangable without knowing its data generating process. We strongly encourage future dataset
+creators to apply a random shuffle to their datasets (and to publicize this fact), which would allow
+our tests to be applied.
+Finally, our tests focus on the case of verbatim contamination where a language model ingests a
+test set directly. Contamination can happen in many other ways, such as when a language model
+consumes a data source used in the construction of a benchmark (e.g. Wikipedia used in SQuAD,
+professional tests in MMLU). Verbatim memorization of a test set is not the only form of contami-
+nation, and our test cannot rule out the possibility of more complex forms of partial contamination.
+7 C ONCLUSION
+In this work, we demonstrated that it is possible to construct a statistical test for test set contam-
+ination that provides false positive rate guarantees and requires nothing other than the ability to
+compute log probabilities. We construct new, sharding based tests for contamination and demon-
+strate their power on both carefully constructed canaries as well as publically available language
+models. We view these tests as a first step towards building powerful third party tests of contamina-
+tion, and we believe it is an exciting open problem to build tests that are capable of reliably detecting
+contamination at the single-duplication-count regime.
+8 A CKNOWLEDGEMENTS
+We gratefully acknowledge support from the CRFM Levanter team, especially David Hall, for
+both computational resources and infrastructure support, and to Google’s TPU Research Cloud
+(TRC) for Cloud TPUs used in the pretraining experiments. Nicole Meister was supported by NSF
+GRFP DGE-2146755. Niladri Chatterji and Faisal Ladhak were supported by SAIL and Tatsunori
+Hashimoto was supported by a gift from IBM and a Hoffman-Yee grant. Finally, we would like
+to thank Nicholas Carlini and Percy Liang for insightful discussions on memorization and test set
+contamination.
+REFERENCES
+Yuntao Bai, Andy Jones, Kamal Ndousse, Amanda Askell, Anna Chen, Nova DasSarma, Dawn
+Drain, Stanislav Fort, Deep Ganguli, Tom Henighan, Nicholas Joseph, Saurav Kadavath, Jackson
+Kernion, Tom Conerly, Sheer El-Showk, Nelson Elhage, Zac Hatfield-Dodds, Danny Hernan-
+dez, Tristan Hume, Scott Johnston, Shauna Kravec, Liane Lovitt, Neel Nanda, Catherine Olsson,
+Dario Amodei, Tom Brown, Jack Clark, Sam McCandlish, Chris Olah, Ben Mann, and Jared Ka-
+plan. Training a helpful and harmless assistant with reinforcement learning from human feedback,
+2022.
+Stella Biderman, Hailey Schoelkopf, Quentin Anthony, Herbie Bradley, Kyle O’Brien, Eric Hal-
+lahan, Mohammad Aflah Khan, Shivanshu Purohit, USVSN Sai Prashanth, Edward Raff, Aviya
+Skowron, Lintang Sutawika, and Oskar van der Wal. Pythia: A suite for analyzing large language
+models across training and scaling, 2023.
+Yonatan Bisk, Rowan Zellers, Ronan Le Bras, Jianfeng Gao, and Yejin Choi. Piqa: Reasoning
+about physical commonsense in natural language. ArXiv , abs/1911.11641, 2019. URL https:
+//api.semanticscholar.org/CorpusID:208290939 .
+Elliot Bolton, David Hall, Michihiro Yasunaga, Tony Lee, Chris Manning, and Percy Liang.
+Biomedlm, 2022. URL https://crfm.stanford.edu/2022/12/15/biomedlm.
+html .
+T. B. Brown, B. Mann, N. Ryder, M. Subbiah, J. Kaplan, P. Dhariwal, A. Neelakantan, P. Shyam,
+G. Sastry, A. Askell, S. Agarwal, A. Herbert-V oss, G. Krueger, T. Henighan, R. Child, A. Ramesh,
+D. M. Ziegler, J. Wu, C. Winter, C. Hesse, M. Chen, E. Sigler, M. Litwin, S. Gray, B. Chess,
+J. Clark, C. Berner, S. McCandlish, A. Radford, I. Sutskever, and D. Amodei. Language models
+are few-shot learners. In Advances in Neural Information Processing Systems (NeurIPS) , 2020a.
+11T. B. Brown, B. Mann, N. Ryder, M. Subbiah, J. Kaplan, P. Dhariwal, A. Neelakantan, P. Shyam,
+G. Sastry, A. Askell, S. Agarwal, A. Herbert-V oss, G. Krueger, T. Henighan, R. Child, A. Ramesh,
+D. M. Ziegler, J. Wu, C. Winter, C. Hesse, M. Chen, E. Sigler, M. Litwin, S. Gray, B. Chess,
+J. Clark, C. Berner, S. McCandlish, A. Radford, I. Sutskever, and D. Amodei. Language models
+are few-shot learners. arXiv preprint arXiv:2005.14165 , 2020b.
+Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhari-
+wal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal,
+Ariel Herbert-V oss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M.
+Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin,
+Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford,
+Ilya Sutskever, and Dario Amodei. Language models are few-shot learners. arXiv preprint
+arXiv:2005.14165 , 2020c.
+N. Carlini, C. Liu, ´U. Erlingsson, J. Kos, and D. Song. The secret sharer: Evaluating and testing
+unintended memorization in neural networks. In USENIX Conference on Security Symposium ,
+SEC’19, pp. 267–284, USA, 2019. USENIX Association. ISBN 9781939133069.
+N. Carlini, F. Tram `er, E. Wallace, M. Jagielski, A. Herbert-V oss, K. Lee, A. Roberts, T. B. Brown,
+D. X. Song, ´U. Erlingsson, A. Oprea, and C. Raffel. Extracting training data from large language
+models. In USENIX Security Symposium , 2021.
+Nicholas Carlini, Daphne Ippolito, Matthew Jagielski, Katherine Lee, Florian Tramer, and
+Chiyuan Zhang. Quantifying memorization across neural language models. arXiv preprint
+arXiv:2202.07646 , 2023.
+Aakanksha Chowdhery, Sharan Narang, Jacob Devlin, Maarten Bosma, Gaurav Mishra, Adam
+Roberts, Paul Barham, Hyung Won Chung, Charles Sutton, Sebastian Gehrmann, Parker Schuh,
+Kensen Shi, Sasha Tsvyashchenko, Joshua Maynez, Abhishek Rao, Parker Barnes, Yi Tay, Noam
+Shazeer, Vinodkumar Prabhakaran, Emily Reif, Nan Du, Ben Hutchinson, Reiner Pope, James
+Bradbury, Jacob Austin, Michael Isard, Guy Gur-Ari, Pengcheng Yin, Toju Duke, Anselm Lev-
+skaya, Sanjay Ghemawat, Sunipa Dev, Henryk Michalewski, Xavier Garcia, Vedant Misra, Kevin
+Robinson, Liam Fedus, Denny Zhou, Daphne Ippolito, David Luan, Hyeontaek Lim, Barret
+Zoph, Alexander Spiridonov, Ryan Sepassi, David Dohan, Shivani Agrawal, Mark Omernick,
+Andrew M. Dai, Thanumalayan Sankaranarayana Pillai, Marie Pellat, Aitor Lewkowycz, Erica
+Moreira, Rewon Child, Oleksandr Polozov, Katherine Lee, Zongwei Zhou, Xuezhi Wang, Bren-
+nan Saeta, Mark Diaz, Orhan Firat, Michele Catasta, Jason Wei, Kathy Meier-Hellstern, Douglas
+Eck, Jeff Dean, Slav Petrov, and Noah Fiedel. Palm: Scaling language modeling with pathways.
+arXiv preprint arXiv:2204.02311 , 2022.
+Christopher Clark, Kenton Lee, Ming-Wei Chang, Tom Kwiatkowski, Michael Collins, and Kristina
+Toutanova. BoolQ: Exploring the surprising difficulty of natural yes/no questions. In Jill
+Burstein, Christy Doran, and Thamar Solorio (eds.), Proceedings of the 2019 Conference of
+the North American Chapter of the Association for Computational Linguistics: Human Lan-
+guage Technologies, Volume 1 (Long and Short Papers) , pp. 2924–2936, Minneapolis, Min-
+nesota, June 2019. Association for Computational Linguistics. doi: 10.18653/v1/N19-1300. URL
+https://aclanthology.org/N19-1300 .
+Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa Schoenick,
+and Oyvind Tafjord. Think you have solved question answering? try arc, the ai2 reasoning
+challenge. ArXiv , abs/1803.05457, 2018. URL https://api.semanticscholar.org/
+CorpusID:3922816 .
+Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser,
+Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John
+Schulman. Training verifiers to solve math word problems. arXiv preprint arXiv:2110.14168 ,
+2021.
+Jesse Dodge, Maarten Sap, Ana Marasovi ´c, William Agnew, Gabriel Ilharco, Dirk Groeneveld,
+Margaret Mitchell, and Matt Gardner. Documenting large webtext corpora: A case study on the
+colossal clean crawled corpus. In Proceedings of the 2021 Conference on Empirical Methods
+12in Natural Language Processing , pp. 1286–1305, Online and Punta Cana, Dominican Republic,
+November 2021. Association for Computational Linguistics. doi: 10.18653/v1/2021.emnlp-main.
+98. URL https://aclanthology.org/2021.emnlp-main.98 .
+R. A. Fisher. Statistical Methods for Research Workers . Oliver & Boyd, Edinburgh, 4th edition,
+1934.
+L. Gao, S. Biderman, S. Black, L. Golding, T. Hoppe, C. Foster, J. Phang, H. He, A. Thite,
+N. Nabeshima, S. Presser, and C. Leahy. The Pile: An 800gb dataset of diverse text for lan-
+guage modeling. arXiv preprint arXiv:2101.00027 , 2020.
+Shahriar Golchin and Mihai Surdeanu. Time travel in llms: Tracing data contamination in large
+language models. arXiv preprint arXiv:2308.08493 , 2023.
+David Hall, Ivan Zhou, and Percy Liang. Levanter — legible, scalable, reproducible foun-
+dation models with jax, 2023. URL https://crfm.stanford.edu/2023/06/16/
+levanter-1_0-release.html .
+Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob
+Steinhardt. Measuring massive multitask language understanding. Proceedings of the Interna-
+tional Conference on Learning Representations (ICLR) , 2021.
+J. Hoffmann, S. Borgeaud, A. Mensch, E. Buchatskaya, T. Cai, E. Rutherford, D. de Las Casas,
+L. A. Hendricks, J. Welbl, A. Clark, T. Hennigan, E. Noland, K. Millican, G. van den Driessche,
+B. Damoc, A. Guy, S. Osindero, K. Simonyan, E. Elsen, O. Vinyals, J. W. Rae, and L. Sifre.
+An empirical analysis of compute-optimal large language model training. In Advances in Neural
+Information Processing Systems (NeurIPS) , 2022.
+Nikhil Kandpal, Eric Wallace, and Colin Raffel. Deduplicating training data mitigates pri-
+vacy risks in language models. In Kamalika Chaudhuri, Stefanie Jegelka, Le Song, Csaba
+Szepesvari, Gang Niu, and Sivan Sabato (eds.), Proceedings of the 39th International Con-
+ference on Machine Learning , volume 162 of Proceedings of Machine Learning Research ,
+pp. 10697–10707. PMLR, 17–23 Jul 2022. URL https://proceedings.mlr.press/
+v162/kandpal22a.html .
+Tom Kwiatkowski, Jennimaria Palomaki, Olivia Redfield, Michael Collins, Ankur Parikh, Chris
+Alberti, Danielle Epstein, Illia Polosukhin, Jacob Devlin, Kenton Lee, Kristina Toutanova, Llion
+Jones, Matthew Kelcey, Ming-Wei Chang, Andrew M. Dai, Jakob Uszkoreit, Quoc Le, and Slav
+Petrov. Natural questions: A benchmark for question answering research. Transactions of the
+Association for Computational Linguistics , 7:452–466, 2019a. doi: 10.1162/tacl a00276. URL
+https://aclanthology.org/Q19-1026 .
+Tom Kwiatkowski, Jennimaria Palomaki, Olivia Redfield, Michael Collins, Ankur Parikh, Chris Al-
+berti, Danielle Epstein, Illia Polosukhin, Matthew Kelcey, Jacob Devlin, Kenton Lee, Kristina N.
+Toutanova, Llion Jones, Ming-Wei Chang, Andrew Dai, Jakob Uszkoreit, Quoc Le, and Slav
+Petrov. Natural questions: a benchmark for question answering research. Transactions of the
+Association of Computational Linguistics , 2019b.
+E. L. Lehmann and Joseph P. Romano. Testing statistical hypotheses . Springer Texts in Statistics.
+Springer, New York, third edition, 2005. ISBN 0-387-98864-5.
+Yuanzhi Li, S ´ebastien Bubeck, Ronen Eldan, Allie Del Giorno, Suriya Gunasekar, and Yin Tat Lee.
+Textbooks are all you need ii: phi-1.5 technical report. arXiv preprint arXiv:2309.05463 , 2019.
+Stephanie Lin, Jacob Hilton, and Owain Evans. TruthfulQA: Measuring how models mimic human
+falsehoods. In Smaranda Muresan, Preslav Nakov, and Aline Villavicencio (eds.), Proceedings
+of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long
+Papers) , pp. 3214–3252, Dublin, Ireland, May 2022. Association for Computational Linguis-
+tics. doi: 10.18653/v1/2022.acl-long.229. URL https://aclanthology.org/2022.
+acl-long.229 .
+Inbal Magar and Roy Schwartz. Data contamination: From memorization to exploitation. In Pro-
+ceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 2:
+Short Papers) , 2022.
+13Justus Mattern, Fatemehsadat Mireshghallah, Zhijing Jin, Bernhard Schoelkopf, Mrinmaya Sachan,
+and Taylor Berg-Kirkpatrick. Membership inference attacks against language models via neigh-
+bourhood comparison. In Anna Rogers, Jordan Boyd-Graber, and Naoaki Okazaki (eds.),
+Findings of the Association for Computational Linguistics: ACL 2023 , pp. 11330–11343,
+Toronto, Canada, July 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023.
+findings-acl.719. URL https://aclanthology.org/2023.findings-acl.719 .
+Todor Mihaylov, Peter Clark, Tushar Khot, and Ashish Sabharwal. Can a suit of armor conduct
+electricity? a new dataset for open book question answering. In Conference on Empirical Methods
+in Natural Language Processing , 2018a. URL https://api.semanticscholar.org/
+CorpusID:52183757 .
+Todor Mihaylov, Peter Clark, Tushar Khot, and Ashish Sabharwal. Can a suit of armor conduct
+electricity? a new dataset for open book question answering. In Ellen Riloff, David Chiang,
+Julia Hockenmaier, and Jun’ichi Tsujii (eds.), Proceedings of the 2018 Conference on Empir-
+ical Methods in Natural Language Processing , pp. 2381–2391, Brussels, Belgium, October-
+November 2018b. Association for Computational Linguistics. doi: 10.18653/v1/D18-1260. URL
+https://aclanthology.org/D18-1260 .
+Mistral. Mistral 7b, 2023. URL https://mistral.ai/news/
+announcing-mistral-7b/ .
+OpenAI. Gpt-4 technical report, 2023.
+Denis Paperno, Germ ´an Kruszewski, Angeliki Lazaridou, Quan Ngoc Pham, Raffaella Bernardi,
+Sandro Pezzelle, Marco Baroni, Gemma Boleda, and Raquel Fern ´andez. The lambada dataset:
+Word prediction requiring a broad discourse context. arXiv preprint arXiv:1606.06031 , 2016.
+Belinda Phipson and Gordon K Smyth. Permutation p-values should never be zero: Calculating
+exact p-values when permutations are randomly drawn. Statistical Applications in Genetics and
+Molecular Biology , 9(1), 2010. doi: doi:10.2202/1544-6115.1585. URL https://doi.org/
+10.2202/1544-6115.1585 .
+Alec Radford, Jeffrey Wu, Rewon Child, David Luan, Dario Amodei, and Ilya
+Sutskever. Language models are unsupervised multitask learners, 2018. URL
+https://d4mucfpksywv.cloudfront.net/better-language-models/
+language_models_are_unsupervised_multitask_learners.pdf .
+Pranav Rajpurkar, Jian Zhang, Konstantin Lopyrev, and Percy Liang. SQuAD: 100,000+ questions
+for machine comprehension of text. In Jian Su, Kevin Duh, and Xavier Carreras (eds.), Pro-
+ceedings of the 2016 Conference on Empirical Methods in Natural Language Processing , pp.
+2383–2392, Austin, Texas, November 2016. Association for Computational Linguistics. doi:
+10.18653/v1/D16-1264. URL https://aclanthology.org/D16-1264 .
+Oscar Sainz, Jon Ander Campos, Iker Garc ´ıa-Ferrero, Julen Etxaniz, and Eneko Agirre.
+Did chatgpt cheat on your test?, 2023. URL https://hitz-zentroa.github.io/
+lm-contamination/blog/ .
+Weijia Shi, Anirudh Ajith, Mengzhou Xia, Yangsibo Huang, Daogao Liu, Terra Blevins, Danqi
+Chen, and Luke Zettlemoyer. Detecting pretraining data from large language models. arXiv
+preprint arXiv:2310.16789 , 2024.
+Reza Shokri, Marco Stronati, Congzheng Song, and Vitaly Shmatikov. Membership inference at-
+tacks against machine learning models. In 2017 IEEE Symposium on Security and Privacy (SP) ,
+2017.
+Together Computer. Redpajama: An open source recipe to reproduce llama training dataset, 2023.
+URL https://github.com/togethercomputer/RedPajama-Data .
+Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Niko-
+lay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, Dan Bikel, Lukas Blecher,
+Cristian Canton Ferrer, Moya Chen, Guillem Cucurull, David Esiobu, Jude Fernandes, Jeremy
+Fu, Wenyin Fu, Brian Fuller, Cynthia Gao, Vedanuj Goswami, Naman Goyal, Anthony Hartshorn,
+14Saghar Hosseini, Rui Hou, Hakan Inan, Marcin Kardas, Viktor Kerkez, Madian Khabsa, Isabel
+Kloumann, Artem Korenev, Punit Singh Koura, Marie-Anne Lachaux, Thibaut Lavril, Jenya Lee,
+Diana Liskovich, Yinghai Lu, Yuning Mao, Xavier Martinet, Todor Mihaylov, Pushkar Mishra,
+Igor Molybog, Yixin Nie, Andrew Poulton, Jeremy Reizenstein, Rashi Rungta, Kalyan Saladi,
+Alan Schelten, Ruan Silva, Eric Michael Smith, Ranjan Subramanian, Xiaoqing Ellen Tan, Binh
+Tang, Ross Taylor, Adina Williams, Jian Xiang Kuan, Puxin Xu, Zheng Yan, Iliyan Zarov, Yuchen
+Zhang, Angela Fan, Melanie Kambadur, Sharan Narang, Aurelien Rodriguez, Robert Stojnic,
+Sergey Edunov, and Thomas Scialom. Llama 2: Open foundation and fine-tuned chat models.
+arXiv preprint arXiv:2307.09288 , 2023.
+A. Wang, A. Singh, J. Michael, F. Hill, O. Levy, and S. R. Bowman. GLUE: A multi-task bench-
+mark and analysis platform for natural language understanding. In International Conference on
+Learning Representations (ICLR) , 2019.
+Jason Wei, Maarten Bosma, Vincent Y Zhao, Kelvin Guu, Adams Wei Yu, Brian Lester, Nan Du,
+Andrew M Dai, and Quoc V Le. Finetuned language models are zero-shot learners. arXiv preprint
+arXiv:2109.01652 , 2021.
+Adina Williams, Nikita Nangia, and Samuel Bowman. A broad-coverage challenge corpus for
+sentence understanding through inference. In Marilyn Walker, Heng Ji, and Amanda Stent
+(eds.), Proceedings of the 2018 Conference of the North American Chapter of the Association
+for Computational Linguistics: Human Language Technologies, Volume 1 (Long Papers) , pp.
+1112–1122, New Orleans, Louisiana, June 2018. Association for Computational Linguistics. doi:
+10.18653/v1/N18-1101. URL https://aclanthology.org/N18-1101 .
+Rowan Zellers, Ari Holtzman, Yonatan Bisk, Ali Farhadi, and Yejin Choi. HellaSwag: Can a
+machine really finish your sentence? In Proceedings of the 57th Annual Meeting of the Associ-
+ation for Computational Linguistics , pp. 4791–4800, Florence, Italy, July 2019. Association for
+Computational Linguistics. doi: 10.18653/v1/P19-1472. URL https://www.aclweb.org/
+anthology/P19-1472 .
+15APPENDICES
+A S TRIDED LOG-LIKELIHOODS
+To compute log-likelihoods for sequences exceeding the context length, we use a strided window
+approach, with a stride equal to half of the model’s context length. We find that decreasing the stride
+beyond half the context length does not yield significant gains.
+B P RETRAINING DETAILS
+We elaborate on the hyperparameters and training procedure of our 1.4B language model, trained
+from scratch on intentionally contaminated Wikitext.
+We use a GPT-2 architecture with 1.4B parameters, with the architecture hyperparameters given by
+a hidden dimension of 1536, 24 heads, 48 layers, and a sequence length of 2048. The training batch
+size was 256. Based on the number of training tokens, sequence length, and training batch size, we
+trained this model for 46000 steps so as to consume the tokens in our mixture datasets exactly once.
+The model was optimized using AdamW with a learning rate of 1e-4 and weight decay of 0.1. We
+trained the model using Levanter on a v3-128 TPU instance on Google Cloud for 1.5 days (Hall
+et al. (2023)).
+C 10 C ANARY DATASETS
+In this section we provide additional details on the 10 canary datasets we injected into Wikitext
+to form our pretraining data. For BoolQ3(Clark et al., 2019), HellaSwag4(Zellers et al., 2019),
+MNLI5(Williams et al., 2018), Natural Questions6(Kwiatkowski et al., 2019a), TruthfulQA7(Lin
+et al., 2022), PIQA8(Bisk et al., 2019), we sample a random subset of 1000 examples. For Open-
+bookQA9(Mihaylov et al., 2018b), because of its smaller test set of size n=500, we used all 500
+examples. Finally, for MMLU10(Hendrycks et al., 2021), we chose from subsets with no multi-line
+examples and having at least 500 examples, specifically Professional Psychology (n=611), MMLU
+Professional Law (n=1000), MMLU High School Psychology (n=544). Finally, we shuffle the ex-
+amples in all datasets to make them exchangeable. In Table 3, we provide additional information
+about the injected datasets including number of examples, average words per example, and number
+of tokens per dataset. For each duplication rate, we included a short, medium and longer dataset, as
+measured by the total token count. The total token count of injected benchmarks is 19.235M tokens,
+meaning that the injected dataset is less than 0.1% of the entire pre-training dataset.
+D F ULL MMLU R ESULTS
+We list in table 4 the full set of MMLU results used to generate the omnibus p-values for contami-
+nation by MMLU listed in table 2, before filtering out for suspected non-exchangeability.
+E C OMPARISON TO MIN-K%-P ROB BASELINE
+We provide a comparison against Min-k% Prob (Shi et al. (2024)), a state of the art heuristic method
+for contamination detection proposed contemporaneous to our work. We use the same pretrained
+model and test sets from our experiments in Section 4.1.
+Our implementation of Min-k%-Prob follows the methodology outlined in Shi et al. (2024); we run
+the method on one hundred 512-token spans sampled from each benchmark, and tune the decision
+3https://github.com/google-research-datasets/boolean-questions
+4https://rowanzellers.com/hellaswag/
+5https://cims.nyu.edu/ ˜sbowman/multinli/
+6https://github.com/google-research-datasets/natural-questions
+7https://github.com/sylinrl/TruthfulQA/blob/main/data/finetune_truth.
+jsonl
+8https://yonatanbisk.com/piqa/
+9https://allenai.org/data/open-book-qa
+10https://github.com/hendrycks/test
+16Table 3: Injected canary datasets and duplication counts used in our pretraining experiments.
+Name Examples Avg Words/Ex Tokens Dup Rate (High) Dup Rate (Low)
+BoolQ 1000 110 110k 1 1
+HellaSwag 1000 185 185k 1 1
+OpenbookQA 500 40 20k 1 2
+Natural Questions 1000 32 32k 10 2
+MNLI 1000 235 235k 10 4
+TruthfulQA 1000 25 25k 10 4
+PIQA 1000 50 50k 50 7
+MMLU Pro. Law 1000 2000 200k 50 7
+MMLU Pro. Psych 611 50 30k 50 –
+MMLU H.S. Psych 544 37 20k 100 –
+0.0 0.2 0.4 0.6 0.8 1.00.00.20.40.60.81.0LLaMA2-7B
+ECDF
+Uniform
+0.0 0.2 0.4 0.6 0.8 1.00.00.20.40.60.81.0Mistral-7B
+ECDF
+Uniform
+0.0 0.2 0.4 0.6 0.8 1.00.00.20.40.60.81.0Pythia-1.4B
+ECDF
+Uniform
+Figure 4: Empirical CDFs of MMLU p-values of LLaMA2, Mistral, and Pythia after exclusion of
+BioMedLM and GPT-2 significant test files, plotted against CDFs of a Uniform(0,1).
+threshold on a validation set of five of our contaminated test sets, and five test sets not used in
+our data mixture. The threshold is tuned for a false positive rate of 5% to allow for a meaningful
+comparison against our test. A value of k=20 is used as is recommended in the paper.
+17Table 4: Full MMLU results for LLaMA2-7B, Mistral-7B, Pythia-1.4B, GPT-2XL and BioMedLM.
+Dataset Size LLaMA2-7B Mistral-7B Pythia-1.4B GPT-2 XL BioMedLM
+Abstract-Algebra 100 0.103 0.246 0.645 0.894 0.861
+Anatomy 135 0.586 0.605 0.605 0.439 0.649
+Astronomy 152 0.550 0.657 0.050 0.003 0.050
+Business-Ethics 100 0.936 0.440 0.107 0.808 0.499
+Clinical-Knowledge 265 0.199 0.108 0.081 0.004 0.268
+College-Biology 144 0.108 0.051 0.152 0.260 0.779
+College-Chemistry 100 0.526 0.614 0.595 0.355 0.265
+College-Computer-Science 100 0.060 0.498 0.383 0.532 0.267
+College-Mathematics 100 0.059 0.151 0.162 0.321 0.727
+College-Medicine 173 0.397 0.106 0.340 0.440 0.067
+College-Physics 102 0.694 0.757 0.972 0.719 0.262
+Computer-Security 100 0.214 0.007 0.314 0.180 0.928
+Conceptual-Physics 235 0.554 0.333 0.811 0.710 0.924
+Econometrics 114 0.616 0.761 0.540 0.508 0.035
+Electrical-Engineering 145 0.266 0.364 0.595 0.490 0.277
+Elementary-Mathematics 378 0.059 0.416 0.260 0.355 0.528
+Formal-Logic 126 0.666 0.750 0.990 0.930 0.398
+Global-Facts 100 0.779 0.957 0.448 0.339 0.667
+High-School-Biology 310 0.645 0.279 0.476 0.499 0.416
+High-School-Chemistry 203 0.229 0.426 0.813 0.539 0.055
+High-School-Computer-Science 100 0.023 0.085 0.106 0.045 0.484
+High-School-European-History 165 0.009 1e-38 1e-38 1e-38 1e-38
+High-School-Geography 198 0.194 0.339 0.341 0.721 0.277
+High-School-Government-And-Politics 193 0.294 0.066 0.025 0.372 0.003
+High-School-Macroeconomics 390 0.543 0.222 0.276 0.236 0.511
+High-School-Mathematics 270 0.473 0.182 0.001 0.272 0.032
+High-School-Microeconomics 238 0.862 0.797 0.712 0.122 0.181
+High-School-Physics 151 0.339 0.757 0.171 0.114 0.354
+High-School-Psychology 545 0.033 0.037 0.004 0.039 0.007
+High-School-Statistics 216 0.077 0.119 0.228 0.233 0.211
+High-School-Us-History 204 1e-38 1e-38 1e-38 1e-38 0.001
+High-School-World-History 237 1e-38 1e-38 1e-38 1e-38 1e-38
+Human-Aging 223 0.882 0.830 0.617 0.677 0.803
+Human-Sexuality 131 0.807 0.959 0.502 0.789 0.471
+International-Law 121 0.061 0.545 0.532 0.582 0.817
+Jurisprudence 108 0.009 0.075 0.852 0.879 0.616
+Logical-Fallacies 163 0.103 0.188 0.082 0.397 0.193
+Machine-Learning 112 0.266 0.297 0.373 0.061 0.868
+Management 103 0.516 0.209 0.454 0.907 0.281
+Marketing 234 0.874 0.684 0.977 0.848 0.451
+Medical-Genetics 100 0.501 0.037 0.523 0.425 0.729
+Miscellaneous 783 0.099 0.122 0.086 0.266 0.081
+Moral-Disputes 346 0.017 0.011 0.097 0.190 0.157
+Moral-Scenarios 895 0.652 0.022 0.121 0.487 0.413
+Nutrition 306 0.163 0.601 0.413 0.865 0.609
+Philosophy 311 0.011 0.094 0.003 0.049 0.044
+Prehistory 324 0.203 0.412 0.055 0.268 0.262
+Professional-Accounting 282 0.708 0.242 0.197 0.910 0.798
+Professional-Medicine 272 0.001 0.017 0.001 0.002 1e-38
+Professional-Psychology 612 0.001 0.001 0.058 0.009 0.201
+Public-Relations 110 0.402 0.237 0.162 0.512 0.622
+Security-Studies 245 0.070 0.043 0.687 0.061 0.073
+Sociology 201 0.350 0.258 0.260 0.660 0.496
+Us-Foreign-Policy 100 0.934 0.252 0.778 0.646 0.173
+Virology 166 0.203 0.854 0.219 0.796 0.212
+World-Religions 171 0.311 0.882 0.933 0.222 0.851
+18Table 5: Canary results for Min-k%-Prob.
+Name Size Dup Count Min-k% Prob
+BoolQ 1000 1 13%
+HellaSwag 1000 1 2%
+MNLI 1000 10 100%
+MMLU Pro. Law 1533 50 100%
+MMLU H.S. Psychology 544 100 100%
+19
+user: What is the problem that the paper aims to address?
+assistant: The paper addresses the problem of test set contamination in large language models (LLMs), which occurs when evaluation benchmarks are inadvertently included in the pretraining datasets of these models. This contamination raises concerns about the validity of the models' performances, as it becomes difficult to distinguish between genuine generalization and mere memorization of test datasets. The authors aim to develop a method to provide provable guarantees of such contamination without needing access to the pretraining data or the models' weights. They propose a statistical test leveraging the property of exchangeability in benchmark datasets to identify contamination based on deviations in model likelihoods for ordered versus shuffled dataset sequences.
+user: What are the claimed limitations in the state of the art that the paper addresses? Are the limitations real?
+assistant: The paper claims the following limitations in the current state of the art regarding detecting test set contamination:
+
+1. **Lack of Provable Guarantees**: Existing methods for contamination detection, like heuristic membership inference algorithms, provide speculative evidence but fail to offer provable guarantees about whether a test set has been included in the pretraining dataset.
+
+2. **Dependence on Access to Data or Model Weights**: Many approaches depend on having access to the training data or model weights, which is rarely possible with proprietary, black-box models available only through APIs.
+
+3. **Heuristic Nature**: Previous methods employ heuristics, which limit their ability to conclusively determine contamination—these methods are more exploratory and lack rigorous statistical backing to transition from suspicion to proof.
+
+4. **Limited Scope**: Some approaches focus on a specific subset of benchmarks or rely on known datasets, which might not be comprehensive enough to address widespread or hidden contamination issues.
+
+These limitations are real and significant in the context of language model performance evaluation and trustworthiness. As models become more integral to essential applications, understanding their true performance without relying solely on provider assurances becomes crucial. The paper's methodology tries to provide a systematic and statistically-backed approach to contamination detection, addressing these state-of-the-art limitations by introducing a procedure that does not require internal model data access and offers stronger empirical guarantees against false positives compared to heuristic methods. However, the efficacy of their method is ultimately contingent on assumptions like dataset exchangeability, which must be carefully considered when assessing the practicality of its application.
+user: What is the key novel technical contribution in the paper? Is it really novel?
+assistant: The key novel technical contribution of the paper is the development of a statistical test that provides provable guarantees of test set contamination in black-box language models using the concept of dataset exchangeability. The proposed method detects contamination by comparing the likelihood of a language model's output on a "canonical" ordering of a test dataset versus shuffled orderings. If a model shows a preference for the canonical ordering, it suggests that the model has been exposed to this dataset during training.
+
+The authors enhance the basic permutation test, which suffers from computational inefficiency and limited power for very low p-values, by introducing a sharded log-likelihood comparison test. This approach partitions the dataset into smaller segments or shards and tests for differences in log probabilities across random permutations of these shards. This methodology not only increases the efficiency of the test (enabling parallel processing) but also improves its sensitivity in detecting small differences in dataset likelihoods, ultimately providing more reliable detection of test set contamination.
+
+As for the novelty, the application of exchangeability to provably test contamination appears to be a unique angle in this space, especially in the context of avoiding direct access to model weights or pretraining data. While the concept of permutation tests and exchangeability is not new in statistics, applying it specifically to understand test set contamination in language models presents a novel use case.
+
+However, like many academic claims, the novelty can often build on incremental advancements, joining known statistical techniques in a new way tailored to a specific problem. The strength of the authors' claims about novelty would heavily depend on a thorough literature review to ensure that no previous work has applied similar permutation-based methods with such statistical guarantees to detect contamination in LLMs.
+user: Is the technical approach sound and clearly described? Are there any errors, unstated assumptions, or missing details?
+assistant: The paper presents a sound and innovative technical approach. However, like any complex methodological paper, there are several aspects to examine regarding clarity and potential unstated assumptions:
+
+1. **Exchangeability Assumption**: The approach hinges on the assumption of dataset exchangeability, meaning the order of samples does not affect their joint distribution. This is crucial for the permutation test's validity. While the authors mention it, they don't deeply explore the potential limitations or conditions under which exchangeability might not apply, such as datasets with inherent order (e.g., time series data) or if the dataset construction process itself induces some order bias.
+
+2. **Independence and i.i.d Assumptions**: The derivation of statistical guarantees assumes independence between shards and that datasets can be treated as i.i.d. (independent and identically distributed) samples. This might not hold for all datasets, especially if there are interdependencies between data points within a shard that could bias the test results.
+
+3. **Practicality in Application**: While the paper outlines the theoretical and computational efficiency improvements of their sharded log-likelihood approach, there might be practical challenges in its application. Specifically, the approach's sensitivity to various hyperparameters (such as the number of shards and permutations) could affect reproducibility and require careful tuning to avoid biases or inflated false positives/negatives.
+
+4. **Non-detection of Low Duplication Rates**: The authors acknowledge their method may miss contamination at very low duplication rates, but there is limited discussion on how this could be addressed or its implications in practical scenarios where contamination is subtle but still significant.
+
+5. **Empirical Validation**: While the authors provide empirical results supporting their method's sensitivity, especially at higher duplication rates, the diversity of explored datasets and model scalabilities define the robustness of these experiments. More extensive testing on varied datasets and models, including those not mentioned in the paper, would strengthen the conclusions.
+
+In summary, while the conceptual foundations and statistical mechanics of the approach are logically sound, the paper could benefit from more in-depth discussions and validations regarding assumptions, parameter dependences, and practical implications to ensure comprehensive understanding and application.
+user: Does the empirical evaluation include appropriate baselines and comparisons to validate the proposed approach compared to the state of the art?
+assistant: The empirical evaluation in the paper aims to demonstrate the effectiveness of the proposed approach for detecting test set contamination. It involves two main components: controlled experiments with intentionally contaminated datasets and evaluation on publicly accessible language models.
+
+1. **Controlled Experiments**: The authors train a 1.4 billion parameter language model on a mixture of standard pretraining data and intentional test set contamination (canary datasets). This setup helps evaluate the sensitivity of their test in controlled settings where contamination rates are varied. These experiments show the method's capability to detect contamination at different duplication levels, illustrating its sensitivity and reliability compared to the existing literature on memorization, which often requires higher duplication for detection.
+
+2. **Evaluation on Public Models**: The authors test their approach on several well-known language models (LLaMA2, Mistral-7B, Pythia-1.4B, and GPT-2 XL) against public benchmarks, further validating the method's applicability to real-world models.
+
+However, when it comes to comparisons with the state of the art:
+
+- **Comparison to Heuristic Methods**: The paper discusses existing heuristic methods for contamination detection, such as those that prompt models to generate or evaluate membership in test sets. However, specific empirical comparisons to these approaches are not deeply explored in the experiments, which would strengthen claims of the proposed method's superiority or complementary benefits.
+
+- **Min-k%-Prob Baseline**: An additional comparison with Min-k%-Prob, a contemporary heuristic method, is mentioned in the appendices. This approach provides useful direct baseline measurements for contamination detection in controlled settings, but the details of such comparison are more focused on technical appendices rather than part of the primary result discussions.
+
+In summary, while the paper includes relevant evaluation against some known methods and benchmarks, a more robust set of empirical comparisons across a broader range of contemporary state-of-the-art techniques would enhance the validation and positioning of their approach in the landscape. A deeper investigation into how their method stacks up against non-provable but effective heuristic methods in practice could present a clearer picture of its relative benefits and limitations.
+user: Does the empirical evaluation report well-established and reasonable metrics?
+assistant: The empirical evaluation in the paper uses several metrics and experimental setups to demonstrate the efficacy of their proposed method:
+
+1. **P-values for Contamination Detection**: The primary metric used in the evaluation is the p-value, which indicates the probability that test set contamination has occurred. This metric is central to hypothesis testing and allows for statistical inference about the presence of contamination. The authors use it to determine whether the canonical ordering of a dataset is preferentially assigned a higher likelihood compared to shuffled orderings.
+
+2. **Detection Sensitivity**: The paper assesses the method's sensitivity by analyzing its ability to detect contamination at various duplication levels. This is a critical measure of how effectively the proposed test can identify test set exposure under different scenarios. The experiments with canary datasets serve to highlight how detection power scales with duplication rates.
+
+3. **False Positives**: Although not explicitly detailed in all sections, the evaluation includes considerations for false positive rates, supported by theoretical guarantees of the test's validity (especially as relates to exchangeability assumptions). This is a crucial aspect, as robust methodologies need to demonstrate low false positive rates while maintaining high sensitivity.
+
+4. **Empirical CDFs**: For datasets like MMLU, the authors plot empirical cumulative distribution functions (CDFs) of p-values to visually assess deviations from the expected uniform distribution under the null hypothesis. This provides a graphical method to interpret contamination potential across multiple datasets.
+
+However, while these metrics are well-established within statistical testing and hypothesis evaluation, there are areas that might benefit from further exploration:
+
+- **Benchmark Performance Impact**: While the evaluation focuses on statistical detection, it could be enhanced by correlating findings with potential impacts on benchmark performance, offering insights into practical implications of undetected contamination.
+
+- **Comparative Metrics**: Incorporating other types of metrics commonly used in model evaluations, such as precision-recall for contamination detection or comparative baseline performance scores, could provide a more comprehensive understanding of the method's relative effectiveness.
+
+Overall, the metrics used are appropriate for the problem at hand, but expanding the analysis to include combinative interpretations with model performance data and more detailed comparative metrics can strengthen the empirical evaluation's completeness and applicability.
+user: Are the evaluation benchmarks and datasets appropriately chosen? Are there any better benchmarks or datasets that should have been used?
+assistant: The paper utilizes a combination of intentionally contaminated datasets (referred to as canary datasets) and publicly available benchmarks to evaluate its contamination detection method. Here's an analysis of the choices:
+
+1. **Canary Datasets**: The authors create their own sets of test data contaminated with varying frequencies for controlled experiments. This approach is appropriate for assessing the sensitivity and robustness of their statistical test in a controlled setting. They choose datasets like BoolQ, HellaSwag, MNLI, among others, which are recognized benchmarks in the natural language processing (NLP) community. The variety ensures that the test is evaluated across different dataset types with varying example lengths and characteristics.
+
+2. **Public Benchmarks**: The authors also evaluate their method on publicly available models like LLaMA2, Mistral-7B, and GPT-2 XL, using benchmarks such as AI2-ARC, BoolQ, GSM8K, LAMBADA, NaturalQA, OpenBookQA, PIQA, and MMLU. These are standard benchmarks in the field and represent a diverse range of tasks, from question answering to commonsense reasoning. Testing on these allows the authors to assess their method's usefulness and generalizability in more practical settings.
+
+3. **Reproducibility and Practicality**: Using publicly available datasets helps ensure the reproducibility of their experiments and provides relevance to current real-world applications of language models.
+
+While the selected benchmarks and datasets are standard in NLP research and appropriate for the task at hand, there are a few considerations and potential additions that could strengthen the evaluation:
+
+- **Diverse Data Sources**: Incorporating datasets from various domains beyond common NLP tasks, such as legal or medical texts, might test the robustness of the method further, given that training data for models often spans numerous domains.
+
+- **Dynamic Datasets**: Using datasets that are frequently updated (e.g., those derived from rapidly changing fields or current event datasets) may help evaluate the method's effectiveness in scenarios where pretraining data could quickly become outdated and models are often retrained.
+
+- **Comparison with More Contamination Studies**: Including benchmarks highlighted in existing contamination studies could provide more direct comparisons and insights into the method's relative strength against previously known or suspected contaminated datasets.
+
+Overall, while the paper's chosen benchmarks and datasets are appropriate for demonstrating the initial effectiveness of the method, expanding the range and diversity of datasets could provide additional insights into its applicability and robustness across different contexts.
+user: Do the empirical results really support the claims of the paper?
+assistant: The empirical results in the paper generally support the claims made by the authors, but with some caveats and considerations:
+
+1. **Detection of Contamination**: The results show that the proposed statistical test can effectively detect test set contamination at higher duplication rates (e.g., 10 duplications or more). This supports the claim that the method is sensitive enough to identify contamination in scenarios where datasets have been duplicated multiple times in the training corpus, aligning with existing understandings of memorization in language models.
+
+2. **Application to Public Models**: The application of the test to public models such as LLaMA2, Mistral-7B, and others demonstrates its applicability in real-world settings. The findings, which mostly show non-significant p-values for contamination, align with expectations set by existing contamination analyses performed by model developers. This suggests the approach could serve as a tool for third-party audits of dataset contamination.
+
+3. **Theoretical Justifications**: The paper offers theoretical underpinnings regarding the use of exchangeability and its statistical test, providing a foundation for interpreting p-values derived from their tests.
+
+However, some considerations should be noted:
+
+- **Detection at Low Duplication Rates**: The method struggles to detect contamination at a duplication rate of 1, and while this is acknowledged by the authors, it contrasts with the broader claim of robust contamination detection. This limitation must be considered when evaluating the practical effectiveness of the method, especially as datasets are often included in pretraining corpora just once.
+
+- **Breadth of Benchmarks**: While the chosen datasets are standard, the limited scope relative to all possible datasets models typically train on means the results provide an indicative but incomplete assessment of contamination. Including more varied datasets could provide further validation.
+
+- **Heuristic Filtering**: In some cases, like the MMLU results, the authors heuristically filter certain datasets, which may introduce bias into the results. While the results there suggest contamination might exist, they also highlight the challenges of dealing with non-exchangeable datasets and the limits of their approach.
+
+Overall, the empirical results largely support the core claims of the paper, especially in controlled settings or where contamination is more substantial. However, practical limitations, particularly at low duplication levels and regarding coverage across diverse dataset types, suggest further studies are needed to fully establish the method's effectiveness in varied and complex real-world applications.
+user: Please write a review of the paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Remember as a top-tier venue, the conference only accepts papers that make significant contributions to the field, maintaining a rigorous standard of quality. Owing to the high standard for acceptance, only about the top 20% of the submissions have been accepted.
+Your review should be structured as follows:
+
+Title: [Title of the paper]
+Summary: [Brief summary of the paper]
+Strengths: [Strengths of the paper, including technical innovation, relation to state of the art, and empirical results]
+Weaknesses: [Weaknesses of the paper, including technical errors, errors in methodology, missing citations, weaknesses in empirical evaluation (missing baselines, metrics, or experiments), etc.]
+Suggestions for improvement: [Suggestions for improving the paper]
+Overall recommendation: [strong accept, accept, borderline, reject, strong reject]

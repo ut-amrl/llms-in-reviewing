@@ -1,0 +1,46 @@
+Title: Simultaneous Generation and Improvement: A Unified RL Paradigm for FJSP Optimization
+
+Summary:
+This paper addresses the Flexible Job Shop Scheduling Problem (FJSP) by proposing a dual-model reinforcement learning framework. Specifically, the authors introduce (1) a generative model that sequentially schedules operations to machines, and (2) an improvement model that refines partial solutions. Both models employ graph neural networks (GNNs) to extract relevant contextual information from the partially built schedule. The two models are trained jointly via a Dueling DQN approach, alternating updates to encourage synergy. The resulting framework demonstrates improved makespan compared to both classical priority dispatching rules and prior DRL-based methods, while maintaining reasonable computational time. The authors also show that the approach generalizes effectively to larger problem instances than those used during training.
+
+Strengths:
+1. Innovative Hybrid Approach:  
+   • The paper integrates a two-step “generation + improvement” paradigm within a single reinforcement learning framework, going beyond a single policy model that only performs one-step assignments.  
+   • The iterative improvement mechanism leverages partial solutions as context, suggesting a creative way to handle complex scheduling subproblems online.
+
+2. Thorough Use of Graph Neural Networks:  
+   • By modeling operations, machines, and insertion positions with GNNs, the paper captures rich relational information among jobs and machines. This is a step forward compared to simpler, fixed-size neural architectures.
+
+3. Promising Empirical Results:  
+   • The experimental evaluation shows that the method consistently outperforms strong priority dispatching baselines (FIFO+SPT, MWKR+SPT, etc.) in terms of makespan on synthetic and standard benchmark datasets.  
+   • The paper also compares performance against other state-of-the-art RL-based methods, highlighting its gains in solution quality.
+
+4. Generalization Across Scales:  
+   • The approach handles different problem sizes at inference time via GNN representation. This is beneficial in real-life scenarios since manufacturing scheduling often varies in scale.
+
+Weaknesses:
+1. Limited Discussion of Baselines and Complexity:  
+   • While the paper presents comparative results with dispatching rules and cites or compares to two meta-heuristic methods and some DRL baselines, a deeper study against more advanced, well-tuned meta-heuristics (e.g., strong genetic or tabu-search methods, or advanced ILP-based solvers for medium scale) would strengthen the empirical section.  
+   • The paper does not discuss time complexity of training or inference in as much detail. A more explicit analysis of computational complexity (e.g., how the GNN layers scale with the number of operations) would be helpful.
+
+2. Limited Ablation on Architecture Choices:  
+   • The paper ablates only on the presence/absence of the generation/improvement modules. However, there is limited analysis of how design decisions (e.g., number of GNN layers, choice of DQN variant, or alternative RL algorithms) affect performance. Deeper ablations would provide more insight into the significance of each architectural element.
+
+3. Reward Shaping and Hyperparameter Tuning:  
+   • The authors introduce a specialized reward function and incorporate partial step rewards plus global rewards in the improvement model. The paper would benefit from a more systematic analysis of how different reward designs or hyperparameter sets influence performance.  
+   • More details on sample efficiency and convergent behavior during training (e.g., learning curves, variance across seeds) would increase confidence in the method.
+
+4. Presentation and Clarity:  
+   • Certain methodological details—such as the exact structure of the GNN layers or the reason for certain hyperparameter values—could be expanded for reproducibility. Some notations and definitions (e.g., adjacency matrices for insertion positions) might be clarified with more visual or step-by-step examples.
+
+Suggestions for Improvement:
+• Provide a more comprehensive set of baselines, possibly including additional top-performing evolutionary or hybrid meta-heuristics tested on the same data, to rigorously benchmark the proposed method.  
+• Include more extensive ablation studies (e.g., investigating variations in reward design, number of GAT layers, or the impact of policy architecture choices).  
+• Expand on training complexity, including details such as memory and runtime scaling with problem size, so readers can better assess feasibility for industrial-scale deployments.  
+• Improve clarity in the technical presentation, especially around the definition of the GNN adjacency matrices and how exactly the partial solution transforms between the generation and improvement steps.
+
+Overall Recommendation:
+Borderline (leaning towards accept)
+
+Explanation:  
+The paper proposes a meaningful contribution to FJSP by coupling a generative and an improvement model in a reinforcement learning framework, and it demonstrates strong empirical results on both synthetic and benchmark instances. The approach’s capacity to generalize to instances larger than those in training makes it attractive for practical scheduling contexts. However, further comparisons with more advanced methods, deeper architectural and hyperparameter ablations, and clearer exposition would strengthen the submission. If the authors address these issues—particularly improving thoroughness in comparisons and clarifying certain technical details—it is likely to be of high interest to the AI scheduling and RL communities. Given the current form, I would recommend acceptance if space allows for a thorough revision and improvements in clarity and breadth of empirical comparisons.
