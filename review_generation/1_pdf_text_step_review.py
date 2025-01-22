@@ -83,7 +83,7 @@ def main():
     review, messages = generate_review(openai_api_key, paper_text)
 
     review_file_path = os.path.join(pdf_dir, "1_review.txt")
-    cot_file_path = os.path.join(pdf_dir, "1_cot.txt")
+    cot_file_path = os.path.join(pdf_dir, "1_steps.txt")
     
     with open(review_file_path, "w") as review_file:
         review_file.write(review)
