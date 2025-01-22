@@ -1,0 +1,26 @@
+Title: Ask Again, Then Fail: Large Language Models’ Vacillations in Judgement
+
+Summary: The paper investigates judgement consistency in large language models (LLMs) such as ChatGPT, PaLM2-Bison, and Vicuna-13B when subjected to skeptical, negating, or misleading follow-up questions. By introducing a Follow-Up Questioning Mechanism inspired by educational questioning strategies, the study provides a systematic evaluation framework using two novel metrics: Modification and Modification Rate. It assesses the models on eight diverse reasoning benchmarks to demonstrate that these LLMs often waver in their judgements under disturbances, even if initial answers are correct. The paper also explores various settings and prompting methods to further study and attempt to mitigate this problem.
+
+Strengths:
+- **Technical Innovation**: The paper establishes a novel evaluation mechanism for assessing the judgement consistency of LLMs under dynamic questioning, which is both practical and theoretically inspired by educational strategies.
+- **Comprehensive Evaluation**: The empirical study across diverse benchmarks including arithmetic, commonsense, symbolic, and knowledge reasoning tasks provides a robust validation of model behaviors under different scenarios.
+- **Comparative Insights**: By analyzing multiple LLMs, the paper demonstrates that the issue of judgement inconsistency is prevalent across different architectures and training regimes.
+- **Metrics Development**: The introduction of Modification and Modification Rate as metrics provides quantitative measures to capture the nuanced changes in model performance caused by follow-up questioning.
+- **Broader Impact**: The study raises significant concerns about deploying LLMs in real-world applications where predictive accuracy and consistency are essential, motivating further work in this area.
+
+Weaknesses:
+- **Lack of Baseline Comparisons**: The paper does not include comparisons with existing methodologies or baselines that might address similar issues, which limits the understanding of the relative effectiveness of the proposed approach.
+- **Variable Depth in Analysis**: While the results substantiate the main claims, there is a lack of in-depth qualitative error analysis that could better explain why models fail under certain disturbances.
+- **Missing Exploration of Solution Efficacy**: Although initial strategies to mitigate inconsistencies are explored, the paper provides limited insights into their long-term effectiveness or scalability across different models and tasks.
+- **Assumptions**: The work assumes the chosen question types sufficiently cover potential disturbances without validating this exhaustively against real-world dialogue interactions.
+- **Sparse Justification for Methodological Choices**: Some methodological choices, such as the design of the questioning strategy and prompt variations, lack detailed justification or exploration of alternatives.
+
+Suggestions for improvement:
+1. **Baseline Inclusion**: Compare the mechanism against existing baselines or techniques designed to improve conversational robustness to strengthen the validation of the proposed approach.
+2. **Enhanced Error Analysis**: A deeper qualitative error analysis to explore failure modes and the mechanics of model deviation under questioning could provide richer insights.
+3. **Comprehensive Exploration of Mitigation Methods**: Expand on the exploration of mitigation strategies to include more examples and potentially novel approaches to address judgement consistency issues.
+4. **Consideration of Real-World Dialogues**: Validate the assumption that the follow-up question types capture realistic disturbances by incorporating insights from real-world dialogue datasets or interaction logs.
+5. **Extended Evaluation Metrics**: Consider additional evaluation metrics to capture other dimensions of consistency or conversational quality, such as confidence levels or user satisfaction.
+
+Overall recommendation: Borderline. The paper makes a valuable contribution by introducing an innovative framework for evaluating judgement consistency in LLMs. However, to align with the rigorous standards of a top-tier conference, it would benefit from more thorough comparisons with existing methods and deeper analytical insights.

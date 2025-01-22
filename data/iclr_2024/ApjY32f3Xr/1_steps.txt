@@ -1,0 +1,935 @@
+system: You are an expert reviewer for AI conference papers.
+user: Read the following paper, in preparation to review it. Maintain healthy scientific skepticism, don't assume that the claims in the paper are necessarily correct, and check everything carefully:
+Under review as a conference paper at ICLR 2024
+PINN ACLE : A C OMPREHENSIVE BENCHMARK OF
+PHYSICS -INFORMED NEURAL NETWORKS FOR SOLV-
+INGPDE S
+Anonymous authors
+Paper under double-blind review
+ABSTRACT
+While significant progress has been made on Physics-Informed Neural Networks
+(PINNs), a comprehensive comparison of these methods across a wide range of
+Partial Differential Equations (PDEs) is still lacking. This study introduces PIN-
+Nacle, a benchmarking tool designed to fill this gap. PINNacle provides a diverse
+dataset, comprising over 20 distinct PDEs from various domains, including heat
+conduction, fluid dynamics, biology, and electromagnetics. These PDEs encapsu-
+late key challenges inherent to real-world problems, such as complex geometry,
+multi-scale phenomena, nonlinearity, and high dimensionality. PINNacle also of-
+fers a user-friendly toolbox, incorporating about 10 state-of-the-art PINN methods
+for systematic evaluation and comparison. We have conducted extensive experi-
+ments with these methods, offering insights into their strengths and weaknesses. In
+addition to providing a standardized means of assessing performance, PINNacle
+also offers an in-depth analysis to guide future research, particularly in areas such
+as domain decomposition methods and loss reweighting for handling multi-scale
+problems and complex geometry. To the best of our knowledge, it is the largest
+benchmark with a diverse and comprehensive evaluation that will undoubtedly
+foster further research in PINNs.
+1 I NTRODUCTION
+Partial Differential Equations (PDEs) are of paramount importance in science and engineering, as
+they often underpin our understanding of intricate physical systems such as fluid flow, heat transfer,
+and stress distribution (Morton & Mayers, 2005). The computational simulation of PDE systems
+has been a focal point of research for an extensive period, leading to the development of numerical
+methods such as finite difference (Causon & Mingham, 2010), finite element (Reddy, 2019), and
+finite volume methods (Eymard et al., 2000).
+Recent advancements have led to the use of deep neural networks to solve forward and inverse
+problems involving PDEs (Raissi et al., 2019; Yu et al., 2018; Daw et al., 2017; Wang et al.,
+2020). Among these, Physics-Informed Neural Networks (PINNs) have emerged as a promising
+alternative to traditional numerical methods in solving such problems (Raissi et al., 2019; Karniadakis
+et al., 2021). PINNs leverage the underlying physical laws and available data to effectively handle
+various scientific and engineering applications. The growing interest in this field has spurred the
+development of numerous PINN variants, each tailored to overcome specific challenges or to enhance
+the performance of the original framework.
+While PINN methods have achieved remarkable progress, a comprehensive comparison of these
+methods across diverse types of PDEs is currently lacking. Establishing such a benchmark is crucial
+as it could enable researchers to more thoroughly understand existing methods and pinpoint potential
+challenges. Despite the availability of several studies comparing sampling methods (Wu et al., 2023)
+and reweighting methods (Bischof & Kraus, 2021), there has been no concerted effort to develop
+a rigorous benchmark using challenging datasets from real-world problems. The sheer variety and
+inherent complexity of PDEs make it difficult to conduct a comprehensive analysis. Moreover,
+different mathematical properties and application scenarios further complicate the task, requiring the
+benchmark to be adaptable and exhaustive.
+To resolve these challenges, we propose PINNacle, a comprehensive benchmark for evaluating and
+understanding the performance of PINNs. As shown in Fig. 1, PINNacle consists of three major
+1Under review as a conference paper at ICLR 2024
+DeepXDE
+Datasets
+/
+PDEs
+Toolbox
+-
+Reweighting
+: 
+ 
+PINN
+-
+LRA
+, 
+PINN
+-
+NTK
+-
+Resampling
+:   
+RAR
+-
+Optimizer
+:  
+Multi
+-
+Adam
+-
+Loss functions
+: 
+ 
+gPINN
+, 
+vPINN
+-
+Network Architecture
+: 
+ 
+LAAF
+, 
+GAAF
+-
+Domain decomposition
+: 
+FBPINN
+-
+Metrics
+:
+       
+L
+1
+, 
+L
+2 
+relative error
+       
+MSE
+-
+Visualization
+:
+       
+Temporal error analysis
+       
+2
+D
+/
+3
+D plots
+            
+Evaluation
+Benchmark of PINNs on 
+20
++ 
+PDEs with 
+10
++ 
+SOTA methods
+F
+luid 
+M
+echanics
+E
+lectromagnetism
+Heat Conduction
+G
+eophysics
+PyTorch
+    
+-
+Linear
+:                                   
+        
+Poisson
+, 
+Heat
+, 
+Wave 
+-
+Nonlinear
+:
+ 
+        
+Burgers
+, 
+NS
+, 
+GS
+, 
+KS 
+-
+High Dimensional
+:
+         
+Poisson
+, 
+Diffusion
+-
+Numerical solutions
+        
+FEM
+, 
+Spectral Methods
+  
+Backend
+Applications 
+Benchmark
+  
+ 
+Figure 1: Architecture of PINNacle. It contains a dataset covering more than 20 PDEs, a toolbox that
+implements about 10 SOTA methods, and an evaluation module. These methods have a wide range of
+application scenarios like fluid mechanics, electromagnetism, heat conduction, geophysics, and so on.
+components — a diverse dataset, a toolbox, and evaluation modules. The dataset comprises tasks
+from over 20 different PDEs from various domains, including heat conduction, fluid dynamics,
+biology, and electromagnetics. Each task brings its own set of challenges, such as complex geometry,
+multi-scale phenomena, nonlinearity, and high dimensionality, thus providing a rich testing ground
+for PINNs. The toolbox incorporates more than 10 state-of-the-art (SOTA) PINN methods, enabling
+a systematic comparison of different strategies, including loss reweighting, variational formulation,
+adaptive activations, and domain decomposition. These methods can be flexibly applied to the tasks
+in the dataset, offering researchers a convenient way to evaluate the performance of PINNs which is
+also user-friendly for secondary development. The evaluation modules provide a standardized means
+of assessing the performance of different PINN methods across all tasks, ensuring consistency in
+comparison and facilitating the identification of strengths and weaknesses in various methods.
+PINNacle provides a robust, diverse, and comprehensive benchmark suite for PINNs, contributing
+significantly to the field’s understanding and application. It represents a major step forward in the
+evolution of PINNs which could foster more innovative research and development in this exciting
+field. In a nutshell, our contributions can be summarized as follows:
+•We design a dataset encompassing over 20 challenging PDE problems. These problems
+encapsulate several critical challenges faced by PINNs, including handling complex geome-
+tries, multi-scale phenomena, nonlinearity, and high-dimensional problems.
+•We systematically evaluate more than 10 carefully selected representative variants of PINNs.
+We conducted thorough experiments and ablation studies to evaluate their performance. To
+the best of our knowledge, this is the largest benchmark comparing different PINN variants.
+•We provide an in-depth analysis to guide future research. We show using loss reweighting
+and domain decomposition methods could improve the performance on multi-scale and
+complex geometry problems. Variational formulation achieves better performance on inverse
+problems. However, few methods can adequately address nonlinear problems, indicating a
+future direction for exploration and advancement.
+2 R ELATED WORK
+2.1 B ENCHMARKS AND DATASETS IN SCIENTIFIC MACHINE LEARNING
+The growing trend of AI applications in scientific research has stimulated the development of various
+benchmarks and datasets, which differ greatly in data formats, sizes, and governing principles. For
+instance, (Lu et al., 2022) presents a benchmark for comparing neural operators, while (Botev
+et al., 2021; Otness et al., 2021) benchmarks methods for learning latent Newtonian mechanics.
+2Under review as a conference paper at ICLR 2024
+Furthermore, domain-specific datasets and benchmarks exist in fluid mechanics (Huang et al., 2021),
+climate science (Racah et al., 2017; Cachay et al., 2021), quantum chemistry (Axelrod & Gomez-
+Bombarelli, 2022), and biology (Boutet et al., 2016).
+Beyond these domain-specific datasets and benchmarks, physics-informed machine learning has
+received considerable attention (Hao et al., 2022; Cuomo et al., 2022) since the advent of Physics-
+Informed Neural Networks (PINNs) (Raissi et al., 2019). These methods successfully incorporate
+physical laws into model training, demonstrating immense potential across a variety of scientific
+and engineering domains. Various papers have compared different components within the PINN
+framework; for instance, (Das & Tesfamariam, 2022) and (Wu et al., 2023) investigate the sampling
+methods of collocation points in PINNs, and (Bischof & Kraus, 2021) compare reweighting tech-
+niques for different loss components. PDEBench (Takamoto et al., 2022) and PDEArena (Gupta
+& Brandstetter, 2022) design multiple tasks to compare different methods in scientific machine
+learning such as PINNs, FNO, and U-Net. Nevertheless, a comprehensive comparison of various
+PINN approaches remains absent in the literature.
+2.2 S OFTWARES AND TOOLBOXES
+A plethora of software solutions have been developed for solving PDEs with neural networks. These
+include SimNet (Hennigh et al., 2021), NeuralPDE (Rackauckas & Nie, 2017), TorchDiffEq (Chen
+et al., 2020), and PyDEns (Khudorozhkov et al., 2019). More recently, DeepXDE (Lu et al., 2021)
+has been introduced as a fundamental library for implementing PINNs across different backends.
+However, there remains a void for a toolbox that provides a unified implementation for advanced PINN
+variants. Our PINNacle fills this gap by offering a flexible interface that facilitates the implementation
+and evaluation of diverse PINN variants. We furnish clear and concise code for researchers to execute
+benchmarks across all problems and methods.
+2.3 V ARIANTS OF PHYSICS -INFORMED NEURAL NETWORKS
+The PINNs have received much attention due to their remarkable performance in solving both
+forward and inverse PDE problems. However, vanilla PINNs have many limitations. Researchers
+have proposed numerous PINN variants to address challenges associated with high-dimensionality,
+non-linearity, multi-scale issues, and complex geometries (Hao et al., 2022; Cuomo et al., 2022;
+Karniadakis et al., 2021; Krishnapriyan et al., 2021). Broadly speaking, these variants can be
+categorized into: loss reweighting/resampling (Wang et al., 2021a;b; Tang et al., 2021; Wu et al.,
+2023; Nabian et al., 2021), innovative optimizers (Yao et al., 2023), novel loss functions such as
+variational formulations (Yu et al., 2018; Kharazmi et al., 2019; 2021; Khodayi-Mehr & Zavlanos,
+2020) or regularization terms (Yu et al., 2022; Son et al., 2021), and novel architectures like domain
+decomposition (Jagtap & Karniadakis, 2021; Li et al., 2019; Moseley et al., 2021; Jagtap et al., 2020c)
+and adaptive activations (Jagtap et al., 2020b;a). These variants have enhanced PINN’s performance
+across various problems. Here we select representative methods from each category and conduct a
+comprehensive analysis using our benchmark dataset to evaluate these variants.
+3 PINN ACLE : A H IERARCHICAL BENCHMARK FOR PINN S
+In this section, we first introduce the preliminaries of PINNs. Then we introduce the details of
+datasets (tasks), PINN methods, the toolbox framework, and the evaluation metrics.
+3.1 P RELIMINARIES OF PHYSICS -INFORMED NEURAL NETWORKS
+Physics-informed neural networks are neural network-based methods for solving PDEs as well as
+inverse problems of PDEs, which have received much attention recently. Specifically, let’s consider a
+general Partial Differential Equation (PDE) system defined on Ω, which can be represented as:
+F(u(x);x) = 0 , x∈Ω, (1)
+B(u(x);x) = 0 , x∈∂Ω. (2)
+whereFis a differential operator and Bis the boundary/initial condition. PINN uses a neural network
+uθ(x)with parameters θto approximate u(x). The objective of PINN is to minimize the following
+3Under review as a conference paper at ICLR 2024
+loss function:
+L(θ) =wc
+NcNcX
+i=1||F(uθ(xi
+c);xi
+c)||2+wb
+NbNbX
+i=1||B(uθ(xi
+b);xi
+b)||2+wd
+NdNdX
+i=1||uθ(xi
+d)−u(xi
+d)||2.(3)
+where wc, wb, wdare weights. The first two terms enforce the PDE constraints on {xi
+c}1...N cand
+boundary conditions on {xi
+b}1...N b. The last term is data loss, which is optional when there is data
+available. However, PINNs have several inherent drawbacks. First, PINNs optimize a mixture of
+imbalance loss terms which might hinder its convergence as illustrated in (Wang et al., 2021a).
+Second, nonlinear or stiff PDEs might lead to unstable optimization (Wang et al., 2021b). Third, the
+vanilla MLPs might have difficulty in representing multi-scale or high-dimensional functions. For
+example, (Krishnapriyan et al., 2021) shows that vanilla PINNs only work for a small parameter
+range, even in a simple convection problem. To resolve these challenges, numerous variants of PINNs
+are proposed. However, a comprehensive comparison of these methods is lacking, and thus it is
+imperative to develop a benchmark.
+3.2 D ATASETS
+To effectively compare PINN variants, we’ve curated a set of PDE problems (datasets) representing
+a wide range of challenges. We chose PDEs from diverse domains, reflecting their importance in
+science and engineering. Our dataset includes 22 unique cases, with further details in Appendix B.
+•TheBurgers’ Equation , fundamental to fluid mechanics, considering both one and two-
+dimensional problems.
+• The Poisson’s Equation , widely used in math and physics, with four different cases.
+•TheHeat Equation , a time-dependent PDE that describes diffusion or heat conduction,
+demonstrated in four unique cases.
+•TheNavier-Stokes Equation , describing the motion of viscous fluid substances, showcased
+in three scenarios: a lid-driven flow (NS2d-C), a geometrically complex backward step flow
+(NS2d-CG), and a time-dependent problem (NS2d-LT).
+• The Wave Equation , modeling wave behavior, exhibited in three cases.
+•Chaotic PDEs , featuring two popular examples: the Gray-Scott (GS) and Kuramoto-
+Sivashinsky (KS) equations.
+•High Dimensional PDEs , including the high-dimensional Poisson equation (PNd) and the
+high-dimensional diffusion or heat equation (HNd).
+•Inverse Problems , focusing on the reconstruction of the coefficient field from noisy data
+for the Poisson equation (PInv) and the diffusion equation (HInv).
+It is important to note that we have chosen PDEs encompassing a wide range of mathematical
+properties. This ensures that the benchmarks do not favor a specific type of PDE. The selected PDE
+problems introduce several core challenges, which include:
+•Complex Geometry : Many PDE problems involve complex or irregular geometry, such as
+heat conduction or wave propagation around obstacles. These complexities pose significant
+challenges for PINNs in terms of accurate boundary behavior representation.
+•Multi-Scale Phenomena : Multi-scale phenomena, where the solution varies significantly
+over different scales, are prevalent in situations such as turbulent fluid flow. Achieving a
+balanced representation across all scales is a challenge for PINNs in multi-scale scenarios.
+•Nonlinear Behavior : Many PDEs exhibit nonlinear or even chaotic behavior, where mi-
+nor variations in initial conditions can lead to substantial divergence in outcomes. The
+optimization of PINNs becomes intriguing on nonlinear PDEs.
+•High Dimensionality : High-dimensional PDE problems, frequently encountered in quantum
+mechanics, present significant challenges for PINNs due to the “curse of dimensionality”.
+This term refers to the increase in computational complexity with the addition of each
+dimension, accompanied by statistical issues like data sparsity in high-dimensional space.
+4Under review as a conference paper at ICLR 2024
+These challenges are selected due to their frequent occurrence in numerous real-world applications.
+As such, a method’s performance in addressing these challenges serves as a reliable indicator of
+its overall practical utility. Table 1 presents a detailed overview of the dataset, the PDEs, and the
+challenges associated with these problems. We generate data using FEM solver provided by COMSOL
+6.0 (Multiphysics, 1998) for problems with complex geometry and spectral method provided by
+Chebfun (Driscoll et al., 2014) for chaotic problems. More details can be found in Appendix B.
+A
+. 
+Complex Geometry
+B
+. 
+Multi
+-
+scale
+C
+. 
+Nonlinear and Chaotic
+D
+. 
+High dimension
+Dataset Complex geometry Multi-scale Nonlinearity High dim
+Burgers1∼2× ×√×
+Poisson3∼6×/√×/√× ×
+Heat7∼10×/√×/√× ×
+NS11∼13×/√×/√ √×
+Wave14∼16×/√×/√× ×
+Chaotic17∼18×√ √×
+High dim19∼20× × ×√
+Inverse21∼22× ×√×
+Table 1: Overview of our datasets along with their challenges. We chose 22 cases in total to evaluate
+the methods of PINNs. The left picture shows the visualization of cases with these four challenges,
+i.e., complex geometry, multi-scale, nonlinearity, and high dimension.
+3.3 M ETHODS AND TOOLBOX
+After conducting an extensive literature review, we present an overview of diverse PINNs approaches
+for comparison. Then we present the high-level structure of our PINNacle.
+3.3.1 M ETHODS
+As mentioned above, variants of PINNs are mainly based on loss functions, architecture, and optimizer
+(Hao et al., 2022). The modifications to loss functions can be divided into reweighting existing
+losses and developing novel loss functions like regularization and variational formulation. Variants of
+architectures include using domain decomposition and adaptive activations.
+The methods discussed are directly correlated with the challenges highlighted in Table 1. For example,
+domain decomposition methods are particularly effective for problems involving complex geometries
+and multi-scale phenomena. Meanwhile, loss reweighting strategies are adept at addressing imbal-
+ances in problems with multiple losses. We have chosen variants from these categories based on their
+significant contributions to the field. Here, we list the primary categories and representative methods
+as summarized in Table 2:
+•Loss reweighting/Resampling (2 ∼4): PINNs are trained with a mixed loss of PDE residuals,
+boundary conditions, and available data losses shown in Eq 3. Various methods (Wang
+et al., 2021a; 2022b; Bischof & Kraus, 2021; Maddu et al., 2022; Rohrhofer et al., 2021)
+propose different strategies to adjust these weights wc, wbandwdat different epochs or
+resample collocation points {xi
+c}and{xi
+b}in Eq 3, which indirectly adjust the weights (Wu
+et al., 2023; Nabian et al., 2021). We choose three famous examples, i.e., reweighting using
+gradient norms (PINN-LRA) (Wang et al., 2021a), using neural tangent kernel (PINN-NTK)
+(Wang et al., 2022b), and residual-based resampling (RAR)(Lu et al., 2021; Wu et al., 2023).
+•Novel optimizer (5) : To handle the problem of multi-scale objectives, some new optimizers
+(Liu et al., 2022; Yao et al., 2023) are proposed. We chose MultiAdam, which is resistant to
+domain scale changes.
+•Novel loss functions (6 ∼7): Some works introduce novel loss functions like variational
+formulation (Sirignano & Spiliopoulos, 2018; Khodayi-Mehr & Zavlanos, 2020; Kharazmi
+et al., 2021) and regularization terms to improve training. We choose hp-VPINN (Kharazmi
+et al., 2021) and gPINN (Yu et al., 2022; Son et al., 2021), which are representative examples
+from these two categories.
+•Novel activation architectures (8 ∼10): Some works propose various network architectures,
+such as using CNN and LSTM (Zhang et al., 2020; Gao et al., 2021; Ren et al., 2022),
+5Under review as a conference paper at ICLR 2024
+Complex Geometry Multi-scale Nonlinearity High dim
+Vanilla PINN1× × × ×
+Reweighting/Resampling2∼4 √ √× ×
+Novel Optimizer7×√× ×
+Novel Loss Functions5∼6× × × ×
+Novel Architecture8∼10 √ √× ×
+Table 2: Overivew of methods in our PINNacle.√denotes the method is potentially designed to
+solve or show empirical improvements for problems encountering the challenge and vice versa.
+custom activation functions (Jagtap et al., 2020a;b), and domain decomposition (Jagtap &
+Karniadakis, 2021; Shukla et al., 2021; Jagtap et al., 2020c; Moseley et al., 2021). Among
+adaptive activations for PINNs, we choose LAAF (Jagtap et al., 2020a) and GAAF (Jagtap
+et al., 2020b). Domain decomposition is a method that divides the whole domain into
+multiple subdomains and trains subnetworks on these subdomains. It is helpful for solving
+multi-scale problems, but multiple subnetworks increase the difficulty of training. XPINNs,
+cPINNs, and FBPINNs (Jagtap & Karniadakis, 2021; Jagtap et al., 2020c; Moseley et al.,
+2021) are three representative examples. We choose FBPINNs which is the state-of-the-art
+domain decomposition that applies domain-specific normalization to stabilize training.
+3.3.2 S TRUCTURE OF TOOLBOX
+We provide a user-friendly and concise toolbox for implementing, training, and evaluating diverse
+PINN variants. Specifically, our codebase is based on DeepXDE and provides a series of encapsulated
+classes and functions to facilitate high-level training and custom PDEs. These utilities allow for a
+standardized and streamlined approach to the implementation of various PINN variants and PDEs.
+Moreover, we provided many auxiliary functions, including computing different metrics, visualizing
+predictions, and recording results.
+Despite the unified implementation of diverse PINNs, we also design an adaptive multi-GPU parallel
+training framework To enhance the efficiency of systematic evaluations of PINN methods. It addresses
+the parallelization phase of training on multiple tasks, effectively balancing the computational loads
+of multiple GPUs. It allows for the execution of larger and more complex tasks. In a nutshell, we
+provide an example code for training and evaluating PINNs on two Poisson equations using our
+PINNacle framework in Appendix D.
+3.4 E VALUATION
+To comprehensively analyze the discrepancy between the PINN solutions and the true solutions,
+we adopt multiple metrics to evaluate the performance of the PINN variants. Generally, we choose
+several metrics that are commonly used in literature that apply to all methods and problems. We
+suppose that y= (yi)n
+i=1is the prediction and y′= (y′
+i)n
+i=1to is ground truth, where nis the number
+of testing examples. Specifically, we use ℓ2relative error ( L2RE ), and ℓ1relative error ( L1RE )
+which are two most commonly used metrics to measure the global quality of the solution,
+L2RE =sPn
+i=1(yi−y′
+i)2
+Pn
+i=1y′
+i2,L1RE =Pn
+i=1|yi−y′
+i|Pn
+i=1|y′
+i|. (4)
+We also compute max error (mERR in short), mean square error (MSE), and Fourier error (fMSE) for
+a detailed analysis of the prediction. These three metrics are computed as follows:
+MSE =1
+nnX
+i=1(yi−y′
+i)2,mERR = max i|yi−y′
+i|,fMSE =qPkmax
+kmin|F(y)− F(y′)|2
+kmax−kmin+ 1,(5)
+where Fdenotes Fourier transform of yandkmin,kmaxare chosen similar to PDEBench (Takamoto
+et al., 2022). Besides, for time-dependent problems, investigating the quality of the solution with
+time is important. Therefore we compute the L2RE error varying with time in Appendix E.2.
+We assess the performance of PINNs against the reference from numerical solvers. Experimental
+results utilizing the ℓ2relative error (L2RE) metric are incorporated within the main text, while a
+more exhaustive set of results, based on the aforementioned metrics, is available in the Appendix E.1.
+6Under review as a conference paper at ICLR 2024
+L2RE Name Vanilla Loss Reweighting/Sampling Optimizer Loss functions Architecture
+– PINN PINN-w LBFGS LRA NTK RAR MultiAdam gPINN vPINN LAAF GAAF FBPINN
+Burgers1d-C 1.45E-2 2.63E-2 1.33E-2 2.61E-2 1.84E-2 3.32E-2 4.85E-2 2.16E-1 3.47E-1 1.43E-2 5.20E-2 2.32E-1
+2d-C 3.24E-1 2.70E-1 4.65E-1 2.60E-1 2.75E-1 3.45E-1 3.33E-1 3.27E-1 6.38E-1 2.77E-1 2.95E-1 –
+Poisson2d-C 6.94E-1 3.49E-2 NaN 1.17E-1 1.23E-2 6.99E-1 2.63E-2 6.87E-1 4.91E-1 7.68E-1 6.04E-1 4.49E-2
+2d-CG 6.36E-1 6.08E-2 2.96E-1 4.34E-2 1.43E-2 6.48E-1 2.76E-1 7.92E-1 2.86E-1 4.80E-1 8.71E-1 2.90E-2
+3d-CG 5.60E-1 3.74E-1 7.05E-1 1.02E-1 9.47E-1 5.76E-1 3.63E-1 4.85E-1 7.38E-1 5.79E-1 5.02E-1 7.39E-1
+2d-MS 6.30E-1 7.60E-1 1.45E+0 7.94E-1 7.48E-1 6.44E-1 5.90E-1 6.16E-1 9.72E-1 5.93E-1 9.31E-1 1.04E+0
+Heat 2d-VC 1.01E+0 2.35E-1 2.32E-1 2.12E-1 2.14E-1 9.66E-1 4.75E-1 2.12E+0 9.40E-1 6.42E-1 8.49E-1 9.52E-1
+2d-MS 6.21E-2 2.42E-1 1.73E-2 8.79E-2 4.40E-2 7.49E-2 2.18E-1 1.13E-1 9.30E-1 7.40E-2 9.85E-1 8.20E-2
+2d-CG 3.64E-2 1.45E-1 8.57E-1 1.25E-1 1.16E-1 2.72E-2 7.12E-2 9.38E-2 – 2.39E-2 4.61E-1 9.16E-2
+2d-LT 9.99E-1 9.99E-1 1.00E+0 9.99E-1 1.00E+0 9.99E-1 1.00E+0 1.00E+0 1.00E+0 9.99E-1 9.99E-1 1.01E+0
+NS 2d-C 4.70E-2 1.45E-1 2.14E-1 NaN 1.98E-1 4.69E-1 7.27E-1 7.70E-2 2.92E-1 3.60E-2 3.79E-2 8.45E-2
+2d-CG 1.19E-1 3.26E-1 NaN 3.32E-1 2.93E-1 3.34E-1 4.31E-1 1.54E-1 9.94E-1 8.24E-2 1.74E-1 8.27E+0
+2d-LT 9.96E-1 1.00E+0 9.70E-1 1.00E+0 9.99E-1 1.00E+0 1.00E+0 9.95E-1 1.73E+0 9.98E-1 9.99E-1 1.00E+0
+Wave 1d-C 5.88E-1 2.85E-1 NaN 3.61E-1 9.79E-2 5.39E-1 1.21E-1 5.56E-1 8.39E-1 4.54E-1 6.77E-1 5.91E-1
+2d-CG 1.84E+0 1.66E+0 1.33E+0 1.48E+0 2.16E+0 1.15E+0 1.09E+0 8.14E-1 7.99E-1 8.19E-1 7.94E-1 1.06E+0
+2d-MS 1.34E+0 1.02E+0 1.37E+0 1.02E+0 1.04E+0 1.35E+0 1.01E+0 1.02E+0 9.82E-1 1.06E+0 1.06E+0 1.03E+0
+Chaotic GS 3.19E-1 1.58E-1 NaN 9.37E-2 2.16E-1 9.46E-2 9.37E-2 2.48E-1 1.16E+0 9.47E-2 9.46E-2 7.99E-2
+KS 1.01E+0 9.86E-1 NaN 9.57E-1 9.64E-1 1.01E+0 9.61E-1 9.94E-1 9.72E-1 1.01E+0 1.00E+0 1.02E+0
+High dim PNd 3.04E-3 2.58E-3 4.67E-4 4.58E-4 4.64E-3 3.59E-3 3.98E-3 5.05E-3 – 4.14E-3 7.75E-3 –
+HNd 3.61E-1 4.59E-1 1.19E-4 3.94E-1 3.97E-1 3.57E-1 3.02E-1 3.17E-1 – 5.22E-1 5.21E-1 –
+Inverse PInv 9.42E-2 1.66E-1 NaN 1.54E-1 1.93E-1 9.35E-2 1.30E-1 8.03E-2 1.96E-2 1.30E-1 2.54E-1 8.44E-1
+HInv 1.57E+0 5.26E-2 NaN 5.09E-2 7.52E-2 1.52E+0 8.04E-2 4.84E+0 1.19E-2 5.59E-1 2.12E-1 9.27E-1
+Table 3: Mean L2RE of different PINN variants on our benchmark.Best results are highlighted in
+blue and second-places in lightblue . We do not bold any result if errors of all methods are about
+100% . “NaN” means the method does not converge and “–” means the method is not suitable for the
+problem.
+4 E XPERIMENTS
+4.1 M AINRESULTS
+We now present experimental results. Except for the ablation study in Sec 4.3 and Appendix E.2, we
+use a learning rate of 0.001 and train all models with 20,000 epochs. We repeat all experiments three
+times and record the mean and std. Table 3 presents the main results for all methods on our tasks and
+shows their average ℓ2relative errors (with standard deviation results available in Appendix E.1).
+PINN. We use PINN-w to denote training PINNs with larger boundary weights. The vanilla PINNs
+struggle to accurately solve complex physics systems, indicating substantial room for improvement.
+Using an ℓ2relative error (L2RE) of 10% as a threshold for a successful solution, we find that vanilla
+PINN only solves 10 out of 22 tasks, most of which involve simpler equations (e.g., 1.45% on
+Burgers-1d-C). They encounter significant difficulties when faced with physics systems characterized
+by complex geometries, multi-scale phenomena, nonlinearity, and longer time spans. This shows
+that directly optimizing an average of the PDE losses and initial/boundary condition losses leads to
+critical issues such as loss imbalance, suboptimal convergence, and limited expressiveness.
+PINN variants. PINN variants offer approaches to addressing some of these challenges to varying
+degrees. Methods involving loss reweighting and resampling have shown improved performance in
+some cases involving complex geometries and multi-scale phenomena (e.g., 1.43% on Poisson-2d-
+CG). This is due to the configuration of loss weights and sampled collocation points, which adaptively
+place more weight on more challenging domains during the training process. However, these methods
+still struggle with Wave equations, Navier-Stokes equations, and other cases with higher dimensions
+or longer time spans. MultiAdam, a representative of novel optimizers, solves several simple cases
+and the chaotic GS equation ( 9.37%), but does not significantly outperform other methods. The new
+loss term of variational form demonstrates significant superiority in solving inverse problems ( e.g.,
+1.19% on HInv for vPINN), but no clear improvement in fitting error over standard PINN in forward
+cases. Changes in architecture can enhance expressiveness and flexibility for cases with complex
+geometries and multi-scale systems. For example, FBPINN achieves the smallest error on the chaotic
+GS equation ( 7.99%), while LAAF delivers the best fitting result on Heat-2d-CG ( 2.39%).
+7Under review as a conference paper at ICLR 2024
+L2RE Name Vanilla Loss Reweighting/Sampling Optimizer Loss functions Architecture
+– – PINN LRA NTK RAR MultiAdam gPINN vPINN LAAF GAAF FBPINN
+Burgers-P 2d-C 4.74E-01 4.36E-01 4.13E-01 4.71E-01 4.93E-01 4.91E-01 2.82E+0 4.37E-01 4.34E-01 -
+Poisson-P 2d-C 2.24E-01 7.07E-02 1.66E-02 2.33E-01 8.24E-02 4.03E-01 5.51E-1 1.84E-01 2.97E-01 2.87E-2
+Heat-P 2d-MS 1.73E-01 1.23E-01 1.50E-01 1.53E-01 4.00E-01 4.59E-01 5.12E-1 6.27E-02 1.89E-01 2.46E-1
+NS-P 2d-C 3.89E-01 - 4.52E-01 3.91E-01 9.33E-01 7.19E-01 3.76E-1 3.63E-01 4.85E-01 3.99E-1
+Wave-P 1d-C 5.22E-01 3.44E-01 2.69E-01 5.05E-01 6.89E-01 7.66E-01 3.58E-1 4.03E-01 9.00E-01 1.15E+0
+High dim-P HNd 7.66E-03 6.53E-03 9.04E-03 8.07E-03 2.22E-03 7.87E-03 - 6.97E-03 1.94E-01 -
+Table 4: Results of different PINN variants on parametric PDEs. We report average L2RE on all
+examples within a class of PDE. We bold the best results across all methods.
+Discussion. For challenges related to complex geometries and multi-scale phenomena, some methods
+can mitigate these issues by implementing mechanisms like loss reweighting, novel optimizers, and
+better capacity through adaptive activation. This holds true for the 2D cases of Heat and Poisson
+equations, which are classic linear equations. However, when systems have higher dimensions
+(Poisson3d-CG) or longer time spans (Heat2d-LT), all methods fail to solve, highlighting the difficul-
+ties associated with complex geometries and multi-scale systems.
+In contrast, nonlinear, long-time PDEs like 2D Burgers, NS, and KS pose challenges for most
+methods. These equations are sensitive to initial conditions, resulting in complicated solution spaces
+and more local minima for PINNs (Steger et al., 2022). The Wave equation, featuring a second-order
+time derivative and periodic behavior, is particularly hard for PINNs, which often become unstable
+and may violate conservation laws (Jagtap et al., 2020c; Wang et al., 2022a). Although all methods
+perform well on Poisson-Nd, only PINN with LBFGS solves Heat-Nd, indicating the potential of a
+second-order optimizer for solving high dimensional PDEs(Tang et al., 2021).
+4.2 P ARAMETERIZED PDE E XPERIMENTS
+The performance of PINNs is also highly influenced by parameters in PDEs (Krishnapriyan et al.,
+2021). To investigate whether PINNs could handle a class of PDEs, we design this experiment to
+solve the same PDEs with different parameters. We choose 6 PDEs, i.e., Burgers2d-C, Poisson2d-C,
+Heat2d-MS, NS-C, Wave1d-C, and Heat-Nd (HNd), with each case containing five parameterized
+examples. Details of the parametrized PDEs are shown in Appendix B. Here we report the average
+L2RE metric on these parameterized PDEs for every case, and results are shown in the following
+Table 4. First, we see that compared with the corresponding cases in Table E.1, the mean L2RE of
+parameterized PDEs is usually higher. We suggest that this is because there are some difficult cases
+under certain parameters for these PDEs with very high errors. Secondly, we find that PINN-NTK
+works well on parameterized PDE tasks which achieve three best results among all six experiments.
+We speculate that solving PDEs with different parameters requires different weights for loss terms,
+and PINN-NTK is a powerful method for automatically balancing these weights.
+4.3 H YPERPARAMETER ANALYSIS
+The performance of PINNs is strongly affected by hyperparameters, with each variant potentially
+introducing its own unique set. Here we aim to investigate the impact of several shared and method-
+specific hyperparameters via ablation studies. We consider the batch size and the number of training
+epochs. The corresponding results are shown in Figure 2. We focus on a set of problems, i.e.,
+Burgers1d, GS, Heat2d-CG, and Poisson2d-C. Detailed numerical results and additional findings are
+in Appendix E.2.
+Batch Size. The left figure of Figure 18 shows the testing L2RE of PINNs for varying batch sizes. It
+suggests that larger batch sizes provide superior results, possibly due to improved gradient estimation
+accuracy. Despite the GS and Poisson2d-C witnessing saturation beyond a batch size of 2048,
+amplifying the batch sizes generally enhances results for the remaining problems.
+Training Epochs. The right figure of Figure 18 illustrates the L2RE of PINNs across varying training
+epochs. Mirroring the trend observed with batch size, we find that an increase in epochs leads to a
+decrease in overall error. However, the impact of the number of epochs also has a saturation point.
+Notably, beyond 20k or 80k epochs, the error does not decrease significantly, suggesting convergence
+of PINNs around 20 ∼80 epochs.
+8Under review as a conference paper at ICLR 2024
+Burgers1d GS Heat2d-CG Poisson2d-C100
+101
+102
+L2REPerformance of PINNs with different batchsize
+Batchsize: 512
+Batchsize: 2048
+Batchsize: 8192
+Batchsize:32768
+Burgers1d GS Heat2d-CG Poisson2d-C100
+101
+102
+L2REPerformance of PINNs with different epochs
+Epochs: 5k
+Epochs: 20k
+Epochs: 80k
+Epochs: 160k
+Figure 2: Performance of vanilla PINNs under different batch sizes (number of collocation points),
+which is shown in the left figure; and number of training epochs, which is shown in the right figure.
+0 5000 10000 15000 20000100
+101
+102
+L2RE of Burger1Dlr : 1e-2
+lr : 1e-3
+lr : 1e-4
+lr : 1e-5
+lr : stepdecay1
+lr : stepdecay2
+0 5000 10000 15000 20000100
+101
+102
+L2RE of HeatComplexlr : 1e-2
+lr : 1e-3
+lr : 1e-4
+lr : 1e-5
+lr : stepdecay1
+lr : stepdecay2
+0 5000 10000 15000 20000100
+101
+102
+L2RE of Poisson2Dlr : 1e-2
+lr : 1e-3
+lr : 1e-4
+lr : 1e-5
+lr : stepdecay1
+lr : stepdecay2
+Figure 3: Convergence curve of PINNs with different learning rate schedules on Burgers1d, Heat2d-
+CG, and Poisson2d-C.
+Learning Rates. The performance of standard PINNs under various learning rates and learning rate
+schedules is shown in Figure 3. We observe that the influence of the learning rate on performance is
+intricate, with optimal learning rates varying across problems. Furthermore, PINN training tends to
+be unstable. High learning rates, such as 10−2, often lead to error spikes, while low learning rates,
+like10−5, result in slow convergence. Our findings suggest that a moderate learning rate, such as
+10−3or10−4, or a step decay learning rate schedule, tends to yield more stable performance.
+5 C ONCLUSION AND DISCUSSION
+In this work, we introduced PINNacle, a comprehensive benchmark offering a user-friendly toolbox
+that encompasses over 10 PINN methods. We evaluated these methods against more than 20 chal-
+lenging PDE problems, conducting extensive experiments and ablation studies for hyperparameters.
+Looking forward, we plan to expand the benchmark by integrating additional state-of-the-art methods
+and incorporating more practical problem scenarios.
+Our analysis of the experimental results yields several key insights. First, domain decomposition is
+beneficial for addressing problems characterized by complex geometries, and PINN-NTK is a strong
+method for balancing loss weights as experiments show. Second, the choice of hyperparameters
+is crucial to the performance of PINNs. Selecting a larger batch size and appropriately weighting
+losses or betas in Adam may significantly reduce the error. However, the best hyperparameters
+usually vary with PDEs. Third, we identify high-dimensional and nonlinear problems as a pressing
+challenge. The overall performance of PINNs is not yet on par with traditional numerical methods
+(Grossmann et al., 2023). Fourth, from a theoretical standpoint, the exploration of PINNs’ loss
+landscape during the training of high-dimensional or nonlinear problems remains largely unexplored.
+Finally, from an algorithmic perspective, integrating the strengths of neural networks with numerical
+methods like preconditioning, weak formulation, and multigrid may present a promising avenue
+toward overcoming the challenges identified herein (Markidis, 2021).
+9Under review as a conference paper at ICLR 2024
+REFERENCES
+Simon Axelrod and Rafael Gomez-Bombarelli. Geom, energy-annotated molecular conformations
+for property prediction and molecular generation. Scientific Data , 9(1):185, 2022.
+Rafael Bischof and Michael Kraus. Multi-objective loss balancing for physics-informed deep learning.
+arXiv preprint arXiv:2110.09813 , 2021.
+Aleksandar Botev, Andrew Jaegle, Peter Wirnsberger, Daniel Hennes, and Irina Higgins. Which priors
+matter? benchmarking models for learning latent dynamics. arXiv preprint arXiv:2111.05458 ,
+2021.
+Emmanuel Boutet, Damien Lieberherr, Michael Tognolli, Michel Schneider, Parit Bansal, Alan J
+Bridge, Sylvain Poux, Lydie Bougueleret, and Ioannis Xenarios. Uniprotkb/swiss-prot, the
+manually annotated section of the uniprot knowledgebase: how to use the entry view. Plant
+bioinformatics: methods and protocols , pp. 23–54, 2016.
+Salva Rühling Cachay, Venkatesh Ramesh, Jason NS Cole, Howard Barker, and David Rolnick.
+Climart: A benchmark dataset for emulating atmospheric radiative transfer in weather and climate
+models. arXiv preprint arXiv:2111.14671 , 2021.
+DM Causon and CG Mingham. Introductory finite difference methods for PDEs . Bookboon, 2010.
+Feiyu Chen, David Sondak, Pavlos Protopapas, Marios Mattheakis, Shuheng Liu, Devansh Agarwal,
+and Marco Di Giovanni. Neurodiffeq: A python package for solving differential equations with
+neural networks. Journal of Open Source Software , 5(46):1931, 2020.
+Salvatore Cuomo, Vincenzo Schiano Di Cola, Fabio Giampaolo, Gianluigi Rozza, Maziar Raissi, and
+Francesco Piccialli. Scientific machine learning through physics–informed neural networks: where
+we are and what’s next. Journal of Scientific Computing , 92(3):88, 2022.
+Sourav Das and Solomon Tesfamariam. State-of-the-art review of design of experiments for physics-
+informed deep learning. arXiv preprint arXiv:2202.06416 , 2022.
+Arka Daw, Anuj Karpatne, William Watkins, Jordan Read, and Vipin Kumar. Physics-guided neural
+networks (pgnn): An application in lake temperature modeling. arXiv preprint arXiv:1710.11431 ,
+2017.
+Tobin A Driscoll, Nicholas Hale, and Lloyd N Trefethen. Chebfun guide, 2014.
+Robert Eymard, Thierry Gallouët, and Raphaèle Herbin. Finite volume methods. Handbook of
+numerical analysis , 7:713–1018, 2000.
+Han Gao, Luning Sun, and Jian-Xun Wang. Phygeonet: Physics-informed geometry-adaptive
+convolutional neural networks for solving parameterized steady-state pdes on irregular domain.
+Journal of Computational Physics , 428:110079, 2021.
+Tamara G Grossmann, Urszula Julia Komorowska, Jonas Latz, and Carola-Bibiane Schönlieb.
+Can physics-informed neural networks beat the finite element method? arXiv preprint
+arXiv:2302.04107 , 2023.
+Jayesh K Gupta and Johannes Brandstetter. Towards multi-spatiotemporal-scale generalized pde
+modeling. arXiv preprint arXiv:2209.15616 , 2022.
+Zhongkai Hao, Songming Liu, Yichi Zhang, Chengyang Ying, Yao Feng, Hang Su, and Jun Zhu.
+Physics-informed machine learning: A survey on problems, methods and applications. arXiv
+preprint arXiv:2211.08064 , 2022.
+Oliver Hennigh, Susheela Narasimhan, Mohammad Amin Nabian, Akshay Subramaniam, Kaus-
+tubh Tangsali, Zhiwei Fang, Max Rietmann, Wonmin Byeon, and Sanjay Choudhry. Nvidia
+simnet ™: An ai-accelerated multi-physics simulation framework. In International Conference on
+Computational Science , pp. 447–461. Springer, 2021.
+10Under review as a conference paper at ICLR 2024
+Zizhou Huang, Teseo Schneider, Minchen Li, Chenfanfu Jiang, Denis Zorin, and Daniele Panozzo.
+A large-scale benchmark for the incompressible navier-stokes equations. arXiv preprint
+arXiv:2112.05309 , 2021.
+Ameya D Jagtap and George E Karniadakis. Extended physics-informed neural networks (xpinns): A
+generalized space-time domain decomposition based deep learning framework for nonlinear partial
+differential equations. In AAAI Spring Symposium: MLPS , 2021.
+Ameya D Jagtap, Kenji Kawaguchi, and George Em Karniadakis. Locally adaptive activation
+functions with slope recovery for deep and physics-informed neural networks. Proceedings of the
+Royal Society A , 476(2239):20200334, 2020a.
+Ameya D Jagtap, Kenji Kawaguchi, and George Em Karniadakis. Adaptive activation functions
+accelerate convergence in deep and physics-informed neural networks. Journal of Computational
+Physics , 404:109136, 2020b.
+Ameya D Jagtap, Ehsan Kharazmi, and George Em Karniadakis. Conservative physics-informed
+neural networks on discrete domains for conservation laws: Applications to forward and inverse
+problems. Computer Methods in Applied Mechanics and Engineering , 365:113028, 2020c.
+George Em Karniadakis, Ioannis G Kevrekidis, Lu Lu, Paris Perdikaris, Sifan Wang, and Liu Yang.
+Physics-informed machine learning. Nature Reviews Physics , 3(6):422–440, 2021.
+Ehsan Kharazmi, Zhongqiang Zhang, and George Em Karniadakis. Variational physics-informed
+neural networks for solving partial differential equations. arXiv preprint arXiv:1912.00873 , 2019.
+Ehsan Kharazmi, Zhongqiang Zhang, and George Em Karniadakis. hp-vpinns: Variational physics-
+informed neural networks with domain decomposition. Computer Methods in Applied Mechanics
+and Engineering , 374:113547, 2021.
+Reza Khodayi-Mehr and Michael Zavlanos. Varnet: Variational neural networks for the solution of
+partial differential equations. In Learning for Dynamics and Control , pp. 298–307. PMLR, 2020.
+R Khudorozhkov, S Tsimfer, and A Koryagin. Pydens framework for solving differential equations
+with deep learning. arXiv preprint arXiv:1909.11544 , 2019.
+Aditi Krishnapriyan, Amir Gholami, Shandian Zhe, Robert Kirby, and Michael W Mahoney. Char-
+acterizing possible failure modes in physics-informed neural networks. Advances in Neural
+Information Processing Systems , 34:26548–26560, 2021.
+Ke Li, Kejun Tang, Tianfan Wu, and Qifeng Liao. D3m: A deep domain decomposition method for
+partial differential equations. IEEE Access , 8:5283–5294, 2019.
+Yuhao Liu, Xiaojian Li, and Zhengxian Liu. An improved physics-informed neural network based on
+a new adaptive gradient descent algorithm for solving partial differential equations of nonlinear
+systems. 2022.
+Lu Lu, Xuhui Meng, Zhiping Mao, and George Em Karniadakis. Deepxde: A deep learning library
+for solving differential equations. SIAM review , 63(1):208–228, 2021.
+Lu Lu, Xuhui Meng, Shengze Cai, Zhiping Mao, Somdatta Goswami, Zhongqiang Zhang, and
+George Em Karniadakis. A comprehensive and fair comparison of two neural operators (with
+practical extensions) based on fair data. Computer Methods in Applied Mechanics and Engineering ,
+393:114778, 2022.
+Suryanarayana Maddu, Dominik Sturm, Christian L Müller, and Ivo F Sbalzarini. Inverse dirichlet
+weighting enables reliable training of physics informed neural networks. Machine Learning:
+Science and Technology , 3(1):015026, 2022.
+Stefano Markidis. The old and the new: Can physics-informed deep-learning replace traditional
+linear solvers? Frontiers in big Data , 4:669097, 2021.
+Keith W Morton and David Francis Mayers. Numerical solution of partial differential equations: an
+introduction . Cambridge university press, 2005.
+11Under review as a conference paper at ICLR 2024
+Ben Moseley, Andrew Markham, and Tarje Nissen-Meyer. Finite basis physics-informed neural
+networks (fbpinns): a scalable domain decomposition approach for solving differential equations.
+arXiv preprint arXiv:2107.07871 , 2021.
+COMSOL Multiphysics. Introduction to comsol multiphysics ®.COMSOL Multiphysics, Burlington,
+MA, accessed Feb , 9:2018, 1998.
+Mohammad Amin Nabian, Rini Jasmine Gladstone, and Hadi Meidani. Efficient training of physics-
+informed neural networks via importance sampling. Computer-Aided Civil and Infrastructure
+Engineering , 36(8):962–977, 2021.
+Karl Otness, Arvi Gjoka, Joan Bruna, Daniele Panozzo, Benjamin Peherstorfer, Teseo Schneider,
+and Denis Zorin. An extensible benchmark suite for learning to simulate physical systems. arXiv
+preprint arXiv:2108.07799 , 2021.
+Evan Racah, Christopher Beckham, Tegan Maharaj, Samira Ebrahimi Kahou, Mr Prabhat, and Chris
+Pal. Extremeweather: A large-scale climate dataset for semi-supervised detection, localization,
+and understanding of extreme weather events. Advances in neural information processing systems ,
+30, 2017.
+Christopher Rackauckas and Qing Nie. Differentialequations. jl–a performant and feature-rich
+ecosystem for solving differential equations in julia. Journal of open research software , 5(1), 2017.
+Maziar Raissi, Paris Perdikaris, and George E Karniadakis. Physics-informed neural networks: A
+deep learning framework for solving forward and inverse problems involving nonlinear partial
+differential equations. Journal of Computational physics , 378:686–707, 2019.
+Junuthula Narasimha Reddy. Introduction to the finite element method . McGraw-Hill Education,
+2019.
+Pu Ren, Chengping Rao, Yang Liu, Jian-Xun Wang, and Hao Sun. Phycrnet: Physics-informed
+convolutional-recurrent network for solving spatiotemporal pdes. Computer Methods in Applied
+Mechanics and Engineering , 389:114399, 2022.
+Franz M Rohrhofer, Stefan Posch, and Bernhard C Geiger. On the pareto front of physics-informed
+neural networks. arXiv preprint arXiv:2105.00862 , 2021.
+Khemraj Shukla, Ameya D Jagtap, and George Em Karniadakis. Parallel physics-informed neural
+networks via domain decomposition. Journal of Computational Physics , 447:110683, 2021.
+Justin Sirignano and Konstantinos Spiliopoulos. Dgm: A deep learning algorithm for solving partial
+differential equations. Journal of computational physics , 375:1339–1364, 2018.
+Hwijae Son, Jin Woo Jang, Woo Jin Han, and Hyung Ju Hwang. Sobolev training for the neural
+network solutions of pdes. 2021.
+Sophie Steger, Franz M Rohrhofer, and Bernhard C Geiger. How pinns cheat: Predicting chaotic
+motion of a double pendulum. In The Symbiosis of Deep Learning and Differential Equations II ,
+2022.
+Makoto Takamoto, Timothy Praditia, Raphael Leiteritz, Daniel MacKinlay, Francesco Alesiani, Dirk
+Pflüger, and Mathias Niepert. Pdebench: An extensive benchmark for scientific machine learning.
+Advances in Neural Information Processing Systems , 35:1596–1611, 2022.
+Kejun Tang, Xiaoliang Wan, and Chao Yang. Das: A deep adaptive sampling method for solving
+partial differential equations. arXiv preprint arXiv:2112.14038 , 2021.
+Nanzhe Wang, Dongxiao Zhang, Haibin Chang, and Heng Li. Deep learning of subsurface flow via
+theory-guided neural network. Journal of Hydrology , 584:124700, 2020.
+Sifan Wang, Yujun Teng, and Paris Perdikaris. Understanding and mitigating gradient flow pathologies
+in physics-informed neural networks. SIAM Journal on Scientific Computing , 43(5):A3055–A3081,
+2021a.
+12Under review as a conference paper at ICLR 2024
+Sifan Wang, Hanwen Wang, and Paris Perdikaris. On the eigenvector bias of fourier feature networks:
+From regression to solving multi-scale pdes with physics-informed neural networks. Computer
+Methods in Applied Mechanics and Engineering , 384:113938, 2021b.
+Sifan Wang, Shyam Sankaran, and Paris Perdikaris. Respecting causality is all you need for training
+physics-informed neural networks. arXiv preprint arXiv:2203.07404 , 2022a.
+Sifan Wang, Xinling Yu, and Paris Perdikaris. When and why pinns fail to train: A neural tangent
+kernel perspective. Journal of Computational Physics , 449:110768, 2022b.
+Chenxi Wu, Min Zhu, Qinyang Tan, Yadhu Kartha, and Lu Lu. A comprehensive study of non-
+adaptive and residual-based adaptive sampling for physics-informed neural networks. Computer
+Methods in Applied Mechanics and Engineering , 403:115671, 2023.
+Jiachen Yao, Chang Su, Zhongkai Hao, Songming Liu, Hang Su, and Jun Zhu. Multiadam: Parameter-
+wise scale-invariant optimizer for multiscale training of physics-informed neural networks. arXiv
+preprint arXiv:2306.02816 , 2023.
+Bing Yu et al. The deep ritz method: a deep learning-based numerical algorithm for solving variational
+problems. Communications in Mathematics and Statistics , 6(1):1–12, 2018.
+Jeremy Yu, Lu Lu, Xuhui Meng, and George Em Karniadakis. Gradient-enhanced physics-informed
+neural networks for forward and inverse pde problems. Computer Methods in Applied Mechanics
+and Engineering , 393:114823, 2022.
+Ruiyang Zhang, Yang Liu, and Hao Sun. Physics-informed multi-lstm networks for metamodeling
+of nonlinear structures. Computer Methods in Applied Mechanics and Engineering , 369:113226,
+2020.
+13
+user: What is the problem that the paper aims to address?
+assistant: The paper aims to address the lack of a comprehensive benchmark for evaluating Physics-Informed Neural Networks (PINNs) across a wide range of Partial Differential Equations (PDEs). The goal is to establish a standardized method for assessing the performance of various PINN methods on diverse PDE problems, encompassing challenges like complex geometry, multi-scale phenomena, nonlinearity, and high dimensionality. By introducing the benchmark named "PINNacle," the paper seeks to offer a diverse dataset of over 20 PDEs and a toolbox incorporating state-of-the-art PINN methods, facilitating systematic evaluation, comparison, and guidance for future research in this field.
+user: What are the claimed limitations in the state of the art that the paper addresses? Are the limitations real?
+assistant: The paper claims the following limitations in the state of the art for Physics-Informed Neural Networks (PINNs), which it attempts to address through its proposed benchmark:
+
+1. **Lack of Comprehensive Comparison:** The paper argues that there is currently no comprehensive benchmark that evaluates PINN methods across a wide array of PDEs. Existing studies might focus on specific aspects like sampling methods or reweighting techniques but do not encompass a broad evaluation across different types of PDEs.
+
+2. **Variety and Complexity of PDEs:** It is highlighted that the inherent complexity and variety of PDEs pose a significant challenge to conducting a thorough analysis, which existing benchmarks fail to address comprehensively.
+
+3. **Adaptability and Exhaustiveness:** The need for a benchmark that is both adaptable to various mathematical properties and exhaustive in testing PINN methods across multiple scenarios is emphasized.
+
+4. **Standardized Evaluation:** The paper points out the absence of a standardized approach to evaluate the performance of different PINN methods, which would allow for consistent comparison and identification of strengths and weaknesses.
+
+5. **Insights into Method Strengths and Weaknesses:** Current benchmarks do not provide a detailed analysis that guides future research, particularly concerning domain decomposition methods and loss reweighting for complex and multi-scale problems.
+
+Based on the current literature and development in PINNs, these limitations appear real and valid. PINNs have been applied across various scientific and engineering fields, but the community lacks a unified benchmarking tool that thoroughly compares different methods in a systematic and standardized manner. The challenges of complexity, multi-scaleness, and high dimensionality in PDEs are well-recognized issues in computational mathematics and scientific computing, indicating that the concerns raised by the paper are legitimate. Hence, developing a comprehensive benchmark like "PINNacle" could be a valuable contribution to the field.
+user: What is the key novel technical contribution in the paper? Is it really novel?
+assistant: The key technical contribution of the paper is the development of "PINNacle," a comprehensive benchmark designed specifically for evaluating Physics-Informed Neural Networks (PINNs) across a diverse range of Partial Differential Equations (PDEs). This benchmark aims to provide:
+
+1. **A Diverse Dataset:** It includes over 20 distinct PDEs from a variety of domains, such as fluid dynamics, heat conduction, electromagnetics, and biology, covering challenges like complex geometry, multi-scale phenomena, nonlinearity, and high dimensionality.
+
+2. **A Toolbox with Multiple SOTA Methods:** The toolbox incorporates more than 10 state-of-the-art (SOTA) PINN methods, allowing for systematic evaluation and comparison of different strategies like loss reweighting, variational formulation, and domain decomposition.
+
+3. **Standardized Evaluation Metrics:** The benchmark offers standardized means of assessing and comparing the performance of different PINN methods across all tasks.
+
+4. **Guidance for Future Research:** It provides insights into the strengths and weaknesses of existing methods and suggests directions for future research, particularly in areas like domain decomposition and handling multi-scale problems.
+
+As for the novelty, while benchmarking is a common practice in many fields of AI and machine learning, creating such a comprehensive benchmark specifically tailored for PINNs and covering such a wide range of PDEs is novel. Most existing efforts in PINN research tend to focus on specific PDE types or methods without offering a unified platform for broad evaluation. Given the complexities and specific challenges posed by PDEs that PINNs aim to address, the creation of a benchmark like PINNacle, with its focus on diversity and standardized evaluation, appears to be genuinely novel in the current state of scientific machine learning research. However, the degree of novelty would benefit from a comparison with any other recent similar benchmarks not extensively covered within the paper, ensuring that this claim holds under the latest developments in the field.
+user: Is the technical approach sound and clearly described? Are there any errors, unstated assumptions, or missing details?
+assistant: The paper presents a technical approach focused on creating a benchmark for evaluating PINNs, and there are several strengths and areas for consideration regarding its soundness and clarity:
+
+### Strengths and Clarity:
+1. **Comprehensive Dataset:** The paper outlines a clear rationale for selecting over 20 PDEs, addressing various challenges like complex geometry, nonlinearity, and high dimensionality. This shows an understanding of the complexities involved in benchmarking PINNs.
+
+2. **Inclusion of SOTA Methods:** The approach to include more than 10 state-of-the-art PINN methods illustrates a comprehensive evaluation strategy, providing an opportunity for a wide-ranging comparison.
+
+3. **Evaluation Metrics:** The paper details multiple evaluation metrics (e.g., L2 relative error, max error), offering a clear and standardized way to assess PINN performance.
+
+### Areas for Consideration:
+1. **Soundness of Experimentation:** While the paper claims extensive experiments, there is no detailed description of the experimental setup, such as computational resources, hyperparameter tuning, or potential challenges in implementing certain methods. These details are crucial for replicability and understanding the results.
+
+2. **Assumptions and Limitations:** The paper does not clearly articulate any assumptions made, such as the selection criteria for the PDEs, initial and boundary conditions, or the constraints on the neural network architectures used. Additionally, whether the benchmark performance is generalizable to real-world applications is not deeply explored.
+
+3. **Details on Benchmark Construction:** There's room for additional information on how the benchmark was constructed—specifically, concerning how tasks were distributed, how state-of-the-art methods were integrated, and what modifications (if any) were needed.
+
+4. **Comparison with Traditional Methods:** While the focus is on PINN methods, a discussion on how these compare (in accuracy, efficiency, etc.) to traditional numerical methods would provide context and reinforce claims of novelty and utility.
+
+Given these points, while the technical approach is broadly sound, strengthening the description of experimental details, assumptions, and a clearer comparison with traditional methods could enhance the paper’s clarity and completeness. These aspects are critical for assessing the paper's contribution and for other researchers seeking to leverage this benchmark in their work.
+user: Does the empirical evaluation include appropriate baselines and comparisons to validate the proposed approach compared to the state of the art?
+assistant: The empirical evaluation in the paper includes a range of state-of-the-art (SOTA) PINN methods, which serves as an appropriate baseline for comparing and validating these approaches. This inclusion is crucial as it enables a comprehensive assessment of different PINN methods across the diverse dataset of PDEs presented in the benchmark. Here are some details:
+
+1. **Inclusion of SOTA Methods:** The paper evaluates more than 10 state-of-the-art PINN methods, such as those employing loss reweighting, resampling, novel optimizers, variational formulations, and domain decomposition approaches. This wide selection is appropriate as it covers a variety of strategies in the current landscape of PINN research.
+
+2. **Diverse PDEs for Testing:** With over 20 distinct PDEs included in the dataset, the evaluation provides a broad basis for comparison across different types of PDE challenges, ensuring that the methods are tested on realistic and varied scenarios.
+
+3. **Multiple Evaluation Metrics:** Using various metrics like L2 relative error, max error, and Fourier error allows for a nuanced comparison of the performance of each method, aiding in the identification of strengths and weaknesses.
+
+4. **Parameterized PDE Experiments:** The inclusion of parameterized PDEs to explore the performance of PINNs across various parameter settings further demonstrates the benchmark's depth in evaluating how well these methods generalize across different problem settings.
+
+### Areas for Improvement:
+- **Comparison with Non-Neural Methods:** While the benchmark focuses on PINNs, including comparisons with traditional numerical methods (like finite element or finite difference methods) would provide additional context and strengthen claims about the utility and performance of PINNs relative to established approaches.
+
+- **Diversity in Network Architectures:** The paper could also explore comparisons with non-PINN neural approaches, such as Neural Operators or other emerging techniques aimed at solving PDEs, further validating the proposed benchmark's scope.
+
+- **Detailed Results Discussion:** While numeric results are presented, a more thorough discussion of how each method fares in handling specific challenges or types of PDEs, as well as potential reasons for their successes or failures, could enhance insights from the empirical evaluation.
+
+Overall, the empirical evaluation is robust regarding the comparison among diverse PINN methods, but an expanded scope including traditional and other neural approaches could provide a more comprehensive validation of the proposed benchmark's effectiveness in advancing the field.
+user: Does the empirical evaluation report well-established and reasonable metrics?
+assistant: Yes, the empirical evaluation in the paper reports well-established and reasonable metrics for assessing the performance of Physics-Informed Neural Networks (PINNs). The following points outline the metrics used and their appropriateness:
+
+1. **L2 Relative Error (L2RE):** This is a standard metric for evaluating the accuracy of numerical solutions to PDEs, providing a measure of the global error norm relative to the magnitude of the true solution. It is widely used in computational sciences to assess the accuracy of approximations, making it a reasonable choice for the benchmark.
+
+2. **L1 Relative Error (L1RE):** Similar to the L2 relative error, the L1 relative error is another established metric, though it focuses on the mean absolute difference, offering a different perspective on error distribution which might capture certain patterns that the L2 norm does not.
+
+3. **Mean Square Error (MSE):** The MSE metric provides a measure of the average squared differences between predicted and actual values. It's a standard metric for quantifying the difference between estimations and actual values, indicating the goodness of fit.
+
+4. **Max Error (mERR):** The maximum error metric helps identify the worst-case deviation between the predicted and actual solutions. It is useful for understanding if there are specific instances where the model performs poorly, which is critical for evaluating the reliability of PINNs in practice.
+
+5. **Fourier Error (fMSE):** Using Fourier error can be insightful, particularly for PDEs that describe phenomena with oscillatory or wave-like solutions. It helps evaluate how well a method captures the frequency components of the solution.
+
+6. **Temporal Error Analysis:** For time-dependent PDEs, assessing error as a function of time is reasonable, allowing a detailed view of how prediction accuracy evolves, which is crucial for understanding transient behaviors.
+
+These metrics are well-suited for the task as they provide a comprehensive view of model performance in terms of accuracy, error distribution, and fidelity in capturing solution characteristics. By covering various aspects of prediction error, the evaluation ensures a nuanced and thorough assessment of PINNs across different PDE challenges.
+user: Are the evaluation benchmarks and datasets appropriately chosen? Are there any better benchmarks or datasets that should have been used?
+assistant: The paper presents a diverse and comprehensive set of evaluation benchmarks and datasets, which are generally appropriate for assessing the performance of Physics-Informed Neural Networks (PINNs):
+
+1. **Diversity of PDEs:** The benchmark includes over 20 distinct PDEs from several domains such as heat conduction, fluid dynamics, biology, and electromagnetics. This range is suitable because it covers a variety of challenges like complex geometry, multi-scale phenomena, nonlinearity, and high dimensionality, which are critical in real-world applications of PDEs.
+
+2. **Relevance to Real-World Problems:** The selected PDEs reflect common issues in scientific and engineering applications, ensuring that the benchmark has practical relevance and can provide insights into how PINNs could be utilized in real scenarios.
+
+3. **Test on Parameterized PDEs:** The inclusion of parameterized PDEs is a valuable aspect as it tests the generalization of PINNs to a class of solutions rather than a single instance, capturing the robustness and adaptability of the methods.
+
+### Considerations for Possible Improvements:
+
+- **Include Traditional Numerical Baselines:** Although the focus is on PINNs, including baselines based on traditional numerical methods like Finite Difference, Finite Element, or Spectral Methods could provide more context for the efficacy of PINNs relative to established approaches.
+
+- **Consider Neural Operator Methods:** As neural operators (such as FNO, DeepONet) have gained traction in recent years for solving PDEs, comparing PINNs with these methods might offer a broader perspective on the various neural approaches available for PDE problems.
+
+- **Scalability and Complexity:** While the paper covers high-dimensional and complex geometry cases, additional datasets could further stress-test PINNs, especially in extremely high-dimensional spaces or very complex geometries, assessing scalability better.
+
+- **Real-World Industry Test Cases:** Incorporating datasets from industrial simulations, which often deal with proprietary or non-standard PDE formulations, might enhance the practical relevance of the benchmark.
+
+Overall, while the paper has chosen a solid and fitting set of benchmarks and datasets to address the current landscape, the suggested additions could provide an even more comprehensive evaluation of where PINNs stand among both traditional and other emerging machine learning-based approaches for solving PDEs.
+user: Do the empirical results really support the claims of the paper?
+assistant: The empirical results presented in the paper broadly support its claims, but there are some areas that could be strengthened to more robustly validate all the assertions made. Here’s a breakdown:
+
+### Supported Claims:
+1. **Comprehensive Benchmarking:** The paper provides extensive results across over 20 distinct PDEs, demonstrating the applicability of its benchmark in assessing a wide array of challenges. This supports the claim of offering a comprehensive tool for comparing PINN methods.
+
+2. **Diverse PINN Methods:** By evaluating more than 10 different state-of-the-art PINN variants, the results showcase the strengths and weaknesses of these methods in handling various features of the benchmark PDEs, which aligns with the paper's goal.
+
+3. **Insights into Method Performance:** The results highlight where certain methods excel or struggle, such as the effectiveness of loss reweighting methods in handling complex geometries, supporting the claim that the benchmark can provide insights into the methods' strengths and weaknesses.
+
+### Areas for Improvement:
+1. **Comparison with Traditional Methods:** The paper claims that PINNacle provides insights into the future development of PINNs. However, the absence of a direct comparison with traditional numerical methods makes it challenging to quantify exactly how PINNs improve upon established approaches or where they might still lag behind.
+
+2. **Generalization to Real-World Applications:** While the results support the utility of the benchmark in research settings, additional evidence (or examples) demonstrating how these insights translate to or improve real-world applications would strengthen the claims made about practical relevance.
+
+3. **Scalability and Parameter Sensitivity:** The results should delve further into scalability (especially in higher dimensions) and parameter sensitivity analysis, as these are significant aspects of deploying PINN methods in practical scenarios. While the parameterized PDE experiments are a step in this direction, broader coverage or analysis could be beneficial.
+
+### Conclusion:
+Overall, the results do align with many of the paper’s claims and demonstrate the potential value of the proposed benchmark. However, incorporating broader elements like direct comparisons with non-learning-based methods and expanding results on practical utility would offer a more rounded confirmation of all the claims presented. This could be crucial for convincing the community of the benchmark's utility in advancing PINN research and applications.
+user: Please write a review of the paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Remember as a top-tier venue, the conference only accepts papers that make significant contributions to the field, maintaining a rigorous standard of quality. Owing to the high standard for acceptance, only about the top 20% of the submissions have been accepted.
+Your review should be structured as follows:
+
+Title: [Title of the paper]
+Summary: [Brief summary of the paper]
+Strengths: [Strengths of the paper, including technical innovation, relation to state of the art, and empirical results]
+Weaknesses: [Weaknesses of the paper, including technical errors, errors in methodology, missing citations, weaknesses in empirical evaluation (missing baselines, metrics, or experiments), etc.]
+Suggestions for improvement: [Suggestions for improving the paper]
+Overall recommendation: [strong accept, accept, borderline, reject, strong reject]
