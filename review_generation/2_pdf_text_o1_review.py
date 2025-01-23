@@ -7,6 +7,12 @@ import sys
 sys.path.append(os.getcwd())
 from util.util import extract_text_from_pdf, get_openai_api_key
 
+def compute_usage_cost(model_type, prompt_tokens, completion_tokens):
+    if model_type == "o1":
+        return prompt_tokens * 15/1e6 + completion_tokens * 60/1e6
+    elif model_type == "gpt-4o":
+        return prompt_tokens * 2.5/1e6 + completion_tokens * 60/1e6
+
 def generate_review(openai_api_key, text):
     current_file_path = os.path.abspath(__file__)
     review_prompt_path = os.path.join(os.path.dirname(current_file_path), "review_prompt.txt")
@@ -24,6 +30,11 @@ def generate_review(openai_api_key, text):
         ]
     )
     review = review_response['choices'][0]['message']['content']
+    print("Usage:")
+    print(review_response['usage'])
+    prompt_tokens = review_response['usage']['prompt_tokens']
+    completion_tokens = review_response['usage']['completion_tokens']
+    print(f"Cost: ${compute_usage_cost('o1', prompt_tokens, completion_tokens):.2f}")
 
     return review
 

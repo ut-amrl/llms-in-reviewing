@@ -845,109 +845,218 @@ MMLU Pro. Law 1533 50 100%
 MMLU H.S. Psychology 544 100 100%
 19
 user: What is the problem that the paper aims to address?
-assistant: The paper addresses the problem of test set contamination in large language models (LLMs), which occurs when evaluation benchmarks are inadvertently included in the pretraining datasets of these models. This contamination raises concerns about the validity of the models' performances, as it becomes difficult to distinguish between genuine generalization and mere memorization of test datasets. The authors aim to develop a method to provide provable guarantees of such contamination without needing access to the pretraining data or the models' weights. They propose a statistical test leveraging the property of exchangeability in benchmark datasets to identify contamination based on deviations in model likelihoods for ordered versus shuffled dataset sequences.
+assistant: The paper aims to address the problem of test set contamination in large language models (LLMs). Test set contamination occurs when language models, during training, inadvertently ingest evaluation benchmark datasets, which are supposed to be kept separate from the training data. This contamination can lead to inflated performance metrics, as the models may memorize answers rather than generalize from learned patterns. The main challenge is detecting such contamination in proprietary language models, where the pretraining data is often not publicly accessible. The paper proposes a method to provide provable guarantees of test set contamination without needing access to pretraining data or model weights, enabling independent verification of potential contamination in black-box models.
 user: What are the claimed limitations in the state of the art that the paper addresses? Are the limitations real?
-assistant: The paper claims the following limitations in the current state of the art regarding detecting test set contamination:
+assistant: The paper identifies several limitations in the current state of the art regarding detecting test set contamination in language models:
 
-1. **Lack of Provable Guarantees**: Existing methods for contamination detection, like heuristic membership inference algorithms, provide speculative evidence but fail to offer provable guarantees about whether a test set has been included in the pretraining dataset.
+1. **Lack of Access to Training Data**: Many existing approaches require access to the training data or model weights to detect contamination, which is often not possible with black-box models provided through APIs or proprietary systems. 
 
-2. **Dependence on Access to Data or Model Weights**: Many approaches depend on having access to the training data or model weights, which is rarely possible with proprietary, black-box models available only through APIs.
+2. **Heuristic Methods**: Current methods often rely on heuristics or indirect metrics like n-gram overlap, which can lead to false positives or less reliable results because they do not provide provable guarantees of contamination.
 
-3. **Heuristic Nature**: Previous methods employ heuristics, which limit their ability to conclusively determine contamination—these methods are more exploratory and lack rigorous statistical backing to transition from suspicion to proof.
+3. **Inability to Provide Proof**: Existing methods may generate speculation about data contamination but do not offer irrefutable or statistically significant evidence of contamination.
 
-4. **Limited Scope**: Some approaches focus on a specific subset of benchmarks or rely on known datasets, which might not be comprehensive enough to address widespread or hidden contamination issues.
+4. **Computational Inefficiency**: Some methods, particularly those needing a large number of computations to assess the likelihood of contamination, are computationally expensive and less practical for real-world applications.
 
-These limitations are real and significant in the context of language model performance evaluation and trustworthiness. As models become more integral to essential applications, understanding their true performance without relying solely on provider assurances becomes crucial. The paper's methodology tries to provide a systematic and statistically-backed approach to contamination detection, addressing these state-of-the-art limitations by introducing a procedure that does not require internal model data access and offers stronger empirical guarantees against false positives compared to heuristic methods. However, the efficacy of their method is ultimately contingent on assumptions like dataset exchangeability, which must be carefully considered when assessing the practicality of its application.
+5. **Limited Benchmark Scope**: Many methods are limited to a select set of benchmarks and do not generalize well to other datasets or models.
+
+The paper's proposed approach aims to address these limitations by developing a statistical test that can work with only log probability queries from the model, providing provable false positive rate guarantees that do not rely on accessing the model's training data or parameters.
+
+Regarding whether these limitations are real:
+- **Lack of Access and Need for Proof**: Indeed, it is a real limitation, especially given the proprietary nature of many leading LLMs where data access is restricted.
+- **Reliance on Heuristics**: Current methods often lack rigorous statistical backing, which the field recognizes as a limitation.
+- **Computational Efficiency**: While not universally recognized as a limitation, efficient methods that can provide rapid assessments are certainly valuable.
+- **Scope**: The limitation concerning the scope of benchmarks addressed by existing techniques is valid, as the diversity of potential test datasets complicates the assessment.
+
+In summary, the described limitations are generally reflective of real challenges faced in the field of AI research, particularly in verifying data contamination in black-box settings.
 user: What is the key novel technical contribution in the paper? Is it really novel?
-assistant: The key novel technical contribution of the paper is the development of a statistical test that provides provable guarantees of test set contamination in black-box language models using the concept of dataset exchangeability. The proposed method detects contamination by comparing the likelihood of a language model's output on a "canonical" ordering of a test dataset versus shuffled orderings. If a model shows a preference for the canonical ordering, it suggests that the model has been exposed to this dataset during training.
+assistant: The key novel technical contribution of the paper is the development of a statistical test for detecting test set contamination in black-box language models by leveraging the concept of exchangeability. This approach allows for the detection of contamination without requiring access to the model's training data or internal parameters. Specifically, the paper introduces a method where the likelihoods of different orderings of a benchmark dataset are compared. In cases where the model has seen the benchmark during training, it is hypothesized to assign higher likelihoods to the canonical ordering of the data. This conceptual framework allows for a statistical test that can make inferences about contamination with provable control over false positive rates.
 
-The authors enhance the basic permutation test, which suffers from computational inefficiency and limited power for very low p-values, by introducing a sharded log-likelihood comparison test. This approach partitions the dataset into smaller segments or shards and tests for differences in log probabilities across random permutations of these shards. This methodology not only increases the efficiency of the test (enabling parallel processing) but also improves its sensitivity in detecting small differences in dataset likelihoods, ultimately providing more reliable detection of test set contamination.
+Regarding the novelty:
+- **Exchangeability**: The use of exchangeability to detect contamination is a novel application in this context. While exchangeability is a known statistical property, its application to prove test set contamination in the setting of large language models is creative and innovative.
+- **False Positive Guarantees**: The paper's method offers a novel way to provide statistical guarantees for the rate of false positives, which addresses a gap left by previous heuristic methods.
+- **Efficient Sharded Test**: The development of a computationally efficient sharded hypothesis test to improve power and efficiency is also a notable contribution.
 
-As for the novelty, the application of exchangeability to provably test contamination appears to be a unique angle in this space, especially in the context of avoiding direct access to model weights or pretraining data. While the concept of permutation tests and exchangeability is not new in statistics, applying it specifically to understand test set contamination in language models presents a novel use case.
-
-However, like many academic claims, the novelty can often build on incremental advancements, joining known statistical techniques in a new way tailored to a specific problem. The strength of the authors' claims about novelty would heavily depend on a thorough literature review to ensure that no previous work has applied similar permutation-based methods with such statistical guarantees to detect contamination in LLMs.
+Whether these contributions are entirely novel would depend on prior work in similar domains. The use of statistical properties like exchangeability in hypothesis testing is a known concept, but its specific application and adaptation to this problem of test set contamination appear unique, as the paper does not cite other works employing this strategy for similar contamination detection tasks. In that sense, the contribution is presented as novel within the scope of language model contamination analysis. However, thorough literature checks would be necessary to fully establish the novelty against all prior works.
 user: Is the technical approach sound and clearly described? Are there any errors, unstated assumptions, or missing details?
-assistant: The paper presents a sound and innovative technical approach. However, like any complex methodological paper, there are several aspects to examine regarding clarity and potential unstated assumptions:
+assistant: The technical approach presented in the paper appears to be sound in its overall conceptual framework, but there are several aspects worth scrutinizing for potential issues, unstated assumptions, or missing details:
 
-1. **Exchangeability Assumption**: The approach hinges on the assumption of dataset exchangeability, meaning the order of samples does not affect their joint distribution. This is crucial for the permutation test's validity. While the authors mention it, they don't deeply explore the potential limitations or conditions under which exchangeability might not apply, such as datasets with inherent order (e.g., time series data) or if the dataset construction process itself induces some order bias.
+1. **Soundness**:
+   - The approach of using exchangeability seems theoretically justifiable. Using this property for permutation tests leverages a well-understood statistical principle that, under exchangeability, all permutations of a dataset should be equally likely.
 
-2. **Independence and i.i.d Assumptions**: The derivation of statistical guarantees assumes independence between shards and that datasets can be treated as i.i.d. (independent and identically distributed) samples. This might not hold for all datasets, especially if there are interdependencies between data points within a shard that could bias the test results.
+2. **Clarity**:
+   - The paper describes its methodology by outlining how permutation tests are conducted and how a sharded likelihood test is introduced to manage computational resources while improving statistical power. This is relatively clear in terms of its procedural aspects.
 
-3. **Practicality in Application**: While the paper outlines the theoretical and computational efficiency improvements of their sharded log-likelihood approach, there might be practical challenges in its application. Specifically, the approach's sensitivity to various hyperparameters (such as the number of shards and permutations) could affect reproducibility and require careful tuning to avoid biases or inflated false positives/negatives.
+3. **Assumptions**:
+   - The key assumption is that the datasets in question are exchangeable. This means every permutation of the dataset is statistically indistinguishable which might not hold in practical scenarios, particularly for datasets deliberately ordered to follow certain logical progressions.
+   - Another assumption is that seeing and memorizing a dataset leads to greater likelihood only in its canonical form, which might not hold if the learning process affects the memory and generalization capabilities in more nuanced ways.
 
-4. **Non-detection of Low Duplication Rates**: The authors acknowledge their method may miss contamination at very low duplication rates, but there is limited discussion on how this could be addressed or its implications in practical scenarios where contamination is subtle but still significant.
+4. **Potential Limitations**:
+   - A critical point not deeply discussed is the potential for systematic biases in language models that might affect the handling of the "canonical" dataset order versus shuffled datasets independent of contamination, especially related to training artifacts that influence likelihood differently.
+   - The paper might not make explicit how it handles edge cases, such as very small datasets, which might not provide enough permutation variance to yield a meaningful test.
 
-5. **Empirical Validation**: While the authors provide empirical results supporting their method's sensitivity, especially at higher duplication rates, the diversity of explored datasets and model scalabilities define the robustness of these experiments. More extensive testing on varied datasets and models, including those not mentioned in the paper, would strengthen the conclusions.
+5. **Missing Details**:
+   - The paper introduces a "sharded" test approach but may require more elaboration on how sharding decisions are made and balanced for datasets with varying lengths.
+   - Details about computational efficiency and scalability need clarification, especially for very large models where log-likelihood computations even for shards can be computationally demanding.
 
-In summary, while the conceptual foundations and statistical mechanics of the approach are logically sound, the paper could benefit from more in-depth discussions and validations regarding assumptions, parameter dependences, and practical implications to ensure comprehensive understanding and application.
+6. **Empirical Evaluations**:
+   - While empirical results are provided, further robustness checks or comparisons with baseline methods (e.g., purely heuristic methods) under various conditions would strengthen claims about its efficacy and usability in real-world scenarios.
+
+Overall, the paper appears to make rational proposals built on sound statistical principles. Still, like many theoretical exercises applied practically, its full utility would depend on empirical validation and real-world applicability assessments, taking into account all assumptions and edge cases.
 user: Does the empirical evaluation include appropriate baselines and comparisons to validate the proposed approach compared to the state of the art?
-assistant: The empirical evaluation in the paper aims to demonstrate the effectiveness of the proposed approach for detecting test set contamination. It involves two main components: controlled experiments with intentionally contaminated datasets and evaluation on publicly accessible language models.
+assistant: The empirical evaluation in the paper is primarily focused on demonstrating the effectiveness of the proposed method using controlled experiments with intentionally contaminated datasets and some real-world language models. However, the paper does not provide a comprehensive comparison with existing state-of-the-art methods or other baseline approaches. Here's a more detailed assessment:
 
-1. **Controlled Experiments**: The authors train a 1.4 billion parameter language model on a mixture of standard pretraining data and intentional test set contamination (canary datasets). This setup helps evaluate the sensitivity of their test in controlled settings where contamination rates are varied. These experiments show the method's capability to detect contamination at different duplication levels, illustrating its sensitivity and reliability compared to the existing literature on memorization, which often requires higher duplication for detection.
+1. **Controlled Experiments**: 
+   - The paper introduces canary datasets with known contamination levels to test the sensitivity of their method. This is a good practice to validate the basic efficacy of the proposed technique, showing its ability to detect contamination under controlled conditions.
 
-2. **Evaluation on Public Models**: The authors test their approach on several well-known language models (LLaMA2, Mistral-7B, Pythia-1.4B, and GPT-2 XL) against public benchmarks, further validating the method's applicability to real-world models.
+2. **Real-world Models**:
+   - The method is applied to several publicly available language models to demonstrate its applicability in real-world scenarios. This also serves to suggest that the method is computationally feasible for large models.
 
-However, when it comes to comparisons with the state of the art:
+3. **Baseline Comparisons**:
+   - The paper does not make extensive comparisons with existing heuristic methods used for contamination detection. This is a gap, as it would be crucial to benchmark the proposed method against other techniques to truly validate its superiority or complementary value.
+   - The paper does mention the contemporaneous work by Shi et al. (2024) on "Min-k%-Prob," which is described in an appendix, but does not delve into detailed comparisons or analysis of potential differences in performance or applicability. Including such a comparison would strengthen the claim about the method's efficacy and novelty.
 
-- **Comparison to Heuristic Methods**: The paper discusses existing heuristic methods for contamination detection, such as those that prompt models to generate or evaluate membership in test sets. However, specific empirical comparisons to these approaches are not deeply explored in the experiments, which would strengthen claims of the proposed method's superiority or complementary benefits.
+4. **Extended Validation**:
+   - While the paper claims improvements in detecting contamination, it would benefit from tests against more diverse datasets or scenarios where the assumptions of exchangability might not hold, which would showcase robustness against edge cases or limitations of alternative methods.
 
-- **Min-k%-Prob Baseline**: An additional comparison with Min-k%-Prob, a contemporary heuristic method, is mentioned in the appendices. This approach provides useful direct baseline measurements for contamination detection in controlled settings, but the details of such comparison are more focused on technical appendices rather than part of the primary result discussions.
+5. **Discussion on Previous Limitations**:
+   - The paper includes a brief discussion on prior techniques and their limitations but could integrate those findings with direct empirical demonstrations showing where those methods fall short in comparison to the proposed methodology.
 
-In summary, while the paper includes relevant evaluation against some known methods and benchmarks, a more robust set of empirical comparisons across a broader range of contemporary state-of-the-art techniques would enhance the validation and positioning of their approach in the landscape. A deeper investigation into how their method stacks up against non-provable but effective heuristic methods in practice could present a clearer picture of its relative benefits and limitations.
+Overall, while the evaluation suggests the proposed method is promising, the lack of comprehensive baseline comparisons with other methods in the field is a significant omission. Including such comparisons would help validate claims about the methodological advantages and provide a clearer context for the paper's contributions relative to the state of the art.
 user: Does the empirical evaluation report well-established and reasonable metrics?
-assistant: The empirical evaluation in the paper uses several metrics and experimental setups to demonstrate the efficacy of their proposed method:
+assistant: The empirical evaluation in the paper employs several reasonable metrics for assessing the efficacy of the proposed method for detecting test set contamination. Here's a detailed analysis:
 
-1. **P-values for Contamination Detection**: The primary metric used in the evaluation is the p-value, which indicates the probability that test set contamination has occurred. This metric is central to hypothesis testing and allows for statistical inference about the presence of contamination. The authors use it to determine whether the canonical ordering of a dataset is preferentially assigned a higher likelihood compared to shuffled orderings.
+1. **Statistical Significance (p-values)**:
+   - The primary metric used in the paper is the p-value from the statistical tests (permutation test and sharded likelihood comparison test). Reporting p-values is a well-established practice in hypothesis testing to determine statistical significance and make inferences about the null hypothesis.
 
-2. **Detection Sensitivity**: The paper assesses the method's sensitivity by analyzing its ability to detect contamination at various duplication levels. This is a critical measure of how effectively the proposed test can identify test set exposure under different scenarios. The experiments with canary datasets serve to highlight how detection power scales with duplication rates.
+2. **False Positive Rate Control**:
+   - The paper claims that its method provides provable false positive rate guarantees, which is a critical metric for evaluating the reliability of hypothesis tests in statistical contexts.
 
-3. **False Positives**: Although not explicitly detailed in all sections, the evaluation includes considerations for false positive rates, supported by theoretical guarantees of the test's validity (especially as relates to exchangeability assumptions). This is a crucial aspect, as robust methodologies need to demonstrate low false positive rates while maintaining high sensitivity.
+3. **Detection Sensitivity**:
+   - The evaluation discusses the method's sensitivity to different duplication rates, showing how effectively the method can detect contamination at various levels. This sensitivity analysis is crucial for understanding the method's practical applicability.
 
-4. **Empirical CDFs**: For datasets like MMLU, the authors plot empirical cumulative distribution functions (CDFs) of p-values to visually assess deviations from the expected uniform distribution under the null hypothesis. This provides a graphical method to interpret contamination potential across multiple datasets.
+4. **Log p-values**:
+   - By examining the log p-values, the paper helps assess the power of detection, especially for situations where very low p-values are expected or required, like when accounting for multiple comparisons.
 
-However, while these metrics are well-established within statistical testing and hypothesis evaluation, there are areas that might benefit from further exploration:
+5. **Empirical Cumulative Distribution Function (ECDF)**:
+   - The paper uses ECDFs to visualize the distribution of p-values across different datasets and models, providing a useful visual metric to intuitively understand the variance and trends in detection.
 
-- **Benchmark Performance Impact**: While the evaluation focuses on statistical detection, it could be enhanced by correlating findings with potential impacts on benchmark performance, offering insights into practical implications of undetected contamination.
+However, there is room for additional metrics that could enhance the evaluation:
 
-- **Comparative Metrics**: Incorporating other types of metrics commonly used in model evaluations, such as precision-recall for contamination detection or comparative baseline performance scores, could provide a more comprehensive understanding of the method's relative effectiveness.
+- **Comparison Metrics**: Including metrics that compare detection performance against baseline or competing methods, such as recall, precision, or more contextual performance metrics, would be beneficial for comprehensive evaluation.
+- **Computation Cost**: Empirical evaluation of computation time and resources required could further ground the potential applicability assumptions, particularly for scalability to larger models or datasets.
 
-Overall, the metrics used are appropriate for the problem at hand, but expanding the analysis to include combinative interpretations with model performance data and more detailed comparative metrics can strengthen the empirical evaluation's completeness and applicability.
+Overall, while the paper employs strong and well-established metrics for hypothesis testing, additional metrics and analyses, particularly involving comparisons with other methodologies, could provide a more rounded view of the method's performance and resource demands.
 user: Are the evaluation benchmarks and datasets appropriately chosen? Are there any better benchmarks or datasets that should have been used?
-assistant: The paper utilizes a combination of intentionally contaminated datasets (referred to as canary datasets) and publicly available benchmarks to evaluate its contamination detection method. Here's an analysis of the choices:
+assistant: The paper uses a combination of synthetic and real-world datasets to evaluate the proposed method, which is generally appropriate for demonstrating the technique's capability to detect test set contamination. Here's an analysis of the choices made and possible improvements:
 
-1. **Canary Datasets**: The authors create their own sets of test data contaminated with varying frequencies for controlled experiments. This approach is appropriate for assessing the sensitivity and robustness of their statistical test in a controlled setting. They choose datasets like BoolQ, HellaSwag, MNLI, among others, which are recognized benchmarks in the natural language processing (NLP) community. The variety ensures that the test is evaluated across different dataset types with varying example lengths and characteristics.
+1. **Synthetic Contaminated Datasets**:
+   - By intentionally contaminating canary datasets with different duplication rates, the authors create controlled scenarios to test the sensitivity and robustness of their method. This approach is detailed and allows for fine-grained control over experimental conditions, which is a strength of the evaluation.
 
-2. **Public Benchmarks**: The authors also evaluate their method on publicly available models like LLaMA2, Mistral-7B, and GPT-2 XL, using benchmarks such as AI2-ARC, BoolQ, GSM8K, LAMBADA, NaturalQA, OpenBookQA, PIQA, and MMLU. These are standard benchmarks in the field and represent a diverse range of tasks, from question answering to commonsense reasoning. Testing on these allows the authors to assess their method's usefulness and generalizability in more practical settings.
+2. **Real-world Language Models**:
+   - The evaluation includes tests on several publicly available language models (e.g., LLaMA2, Mistral-7B, Pythia-1.4B, GPT-2 XL) using common benchmarks like BoolQ, PIQA, and others. This shows the general applicability of the method in detecting potential contamination in widely used LMs, making the evaluation relevant to real-world applications.
 
-3. **Reproducibility and Practicality**: Using publicly available datasets helps ensure the reproducibility of their experiments and provides relevance to current real-world applications of language models.
+3. **Diversity of Benchmarks**:
+   - The selection of benchmarks covers various task types, including question answering, commonsense reasoning, and natural language understanding. This diversity helps demonstrate the method's applicability across different domains.
 
-While the selected benchmarks and datasets are standard in NLP research and appropriate for the task at hand, there are a few considerations and potential additions that could strengthen the evaluation:
+Possible Improvements:
 
-- **Diverse Data Sources**: Incorporating datasets from various domains beyond common NLP tasks, such as legal or medical texts, might test the robustness of the method further, given that training data for models often spans numerous domains.
+- **Additional Benchmarks**:
+  - While the chosen benchmarks are diverse, including additional datasets known for specific challenges (e.g., datasets with known class imbalance or adversarial examples) might test the limits of the methodology under less ideal conditions.
+  
+- **Cross-Lingual Evaluation**:
+  - The evaluation is focused primarily on English-language datasets. Including multilingual benchmarks could enhance the generalizability and applicability of the method across language-specific or cross-lingual tasks.
 
-- **Dynamic Datasets**: Using datasets that are frequently updated (e.g., those derived from rapidly changing fields or current event datasets) may help evaluate the method's effectiveness in scenarios where pretraining data could quickly become outdated and models are often retrained.
+- **Legacy and Emerging Datasets**:
+  - Assessing the methodology against both established benchmarks and recently released ones might provide insights into its adaptability to evolving datasets and emerging trends in dataset construction and characteristics.
 
-- **Comparison with More Contamination Studies**: Including benchmarks highlighted in existing contamination studies could provide more direct comparisons and insights into the method's relative strength against previously known or suspected contaminated datasets.
-
-Overall, while the paper's chosen benchmarks and datasets are appropriate for demonstrating the initial effectiveness of the method, expanding the range and diversity of datasets could provide additional insights into its applicability and robustness across different contexts.
+In summary, while the paper has made appropriate choices for datasets and benchmarks, there is always room to widen the evaluation scope, ensuring robustness and relevance in an even broader range of scenarios and challenges.
 user: Do the empirical results really support the claims of the paper?
-assistant: The empirical results in the paper generally support the claims made by the authors, but with some caveats and considerations:
+assistant: The empirical results presented in the paper provide support for several key claims, but there are areas where the connection between results and claims could be strengthened:
 
-1. **Detection of Contamination**: The results show that the proposed statistical test can effectively detect test set contamination at higher duplication rates (e.g., 10 duplications or more). This supports the claim that the method is sensitive enough to identify contamination in scenarios where datasets have been duplicated multiple times in the training corpus, aligning with existing understandings of memorization in language models.
+1. **Detection of Contamination**:
+   - The paper's experiments with canary datasets show that the proposed method can detect dataset contamination at various duplication rates. This supports the claim that the method can effectively identify contamination even with modest duplication rates.
 
-2. **Application to Public Models**: The application of the test to public models such as LLaMA2, Mistral-7B, and others demonstrates its applicability in real-world settings. The findings, which mostly show non-significant p-values for contamination, align with expectations set by existing contamination analyses performed by model developers. This suggests the approach could serve as a tool for third-party audits of dataset contamination.
+2. **Sensitivity and False Positive Rate**:
+   - The results demonstrate that the method provides statistical significance (p-values) and false positive rate control, aligning with the claim of provable guarantees. The use of permutation tests and exchangeability contributes to this aspect and is supported by the empirical evidence.
 
-3. **Theoretical Justifications**: The paper offers theoretical underpinnings regarding the use of exchangeability and its statistical test, providing a foundation for interpreting p-values derived from their tests.
+3. **Application to Real-world Models**:
+   - Testing the method on publicly available language models (e.g., LLaMA2, Mistral-7B, Pythia-1.4B, GPT-2 XL) suggests that it can be applied to real-world situations. This supports the claim of the method's practicality in existing language models.
 
-However, some considerations should be noted:
+4. **Comparison to Baselines**:
+   - The paper lacks comprehensive comparisons to previously existing methods or explicit baselines (e.g., heuristic methods). While it compares briefly with contemporaneous work ("Min-k%-Prob"), the empirical results would be more compelling with detailed benchmarks against state-of-the-art methods.
 
-- **Detection at Low Duplication Rates**: The method struggles to detect contamination at a duplication rate of 1, and while this is acknowledged by the authors, it contrasts with the broader claim of robust contamination detection. This limitation must be considered when evaluating the practical effectiveness of the method, especially as datasets are often included in pretraining corpora just once.
+5. **Robustness and Scalability**:
+   - While the empirical results indicate the method's ability to scale to large models, explicit metrics or comparisons on computational efficiency and scalability are not deeply explored. This can partially limit claims about the method's efficiency and utility "in the wild."
 
-- **Breadth of Benchmarks**: While the chosen datasets are standard, the limited scope relative to all possible datasets models typically train on means the results provide an indicative but incomplete assessment of contamination. Including more varied datasets could provide further validation.
+Overall, the results support the claims of effective detection and statistical guarantees to some extent. However, to robustly support all claims, especially relative advantages over existing methods, the work would benefit from more comprehensive empirical comparisons and demonstrations under varied conditions. Additionally, addressing scaling considerations and confirming broad applicability across diverse datasets would strengthen its claims further.
+user: Now read your own analysis. Identify any logical gaps or unsubstantiated claims and correct them.
+assistant: Here is a revised analysis addressing any potential logical gaps or unsubstantiated claims from the initial review:
 
-- **Heuristic Filtering**: In some cases, like the MMLU results, the authors heuristically filter certain datasets, which may introduce bias into the results. While the results there suggest contamination might exist, they also highlight the challenges of dealing with non-exchangeable datasets and the limits of their approach.
+1. **Detection of Contamination**: 
+   - The initial analysis claims that the method effectively detects contamination even with modest duplication rates based on canary dataset experiments. However, it is crucial to specify that the detection was reliable mainly at higher duplication rates (10 or more). The detection capability at lower duplication rates remains less clear, and improvements would be necessary for detection with a duplication count of 1. The paper suggests some potential in this area but does not provide substantial proof for low duplication.
 
-Overall, the empirical results largely support the core claims of the paper, especially in controlled settings or where contamination is more substantial. However, practical limitations, particularly at low duplication levels and regarding coverage across diverse dataset types, suggest further studies are needed to fully establish the method's effectiveness in varied and complex real-world applications.
+2. **Sensitivity and False Positive Rate**:
+   - While the paper demonstrates p-values and claims statistical guarantees, it is additional to carefully validate that these are not influenced by implementation details or specific dataset characteristics. The claims about guarantees are theoretically valid but should account for any unstated assumptions regarding dataset exchangeability broadly.
+
+3. **Application to Real-world Models**:
+   - The claims regarding practicality are partially supported by tests on actual language models, but it would be more robust with additional varying conditions such as diverse dataset types (e.g., tasks, languages). The applicability should not solely rely on similarity to controlled experiments.
+
+4. **Comparison to Baselines**:
+   - The initial analysis describes a lack of comprehensive comparisons. While the paper does conduct a comparison with "Min-k%-Prob," this section should emphasize more clearly the need for benchmark-driven validations and direct comparisons with well-known approaches for stronger empirical backing.
+
+5. **Robustness and Scalability**:
+   - Claims about scalability and efficiency should have been more specific about experimental conditions. The initial review mentions a lack of explicit metrics, which suggests an area for potential strengthening through rigorous evaluations of runtime performance and operational feasibility, both of which are implicitly vital for real-world utility.
+
+In conclusion, acknowledging these points ensures a more precise alignment between empirical results and the paper's claims. Addressing these gaps involves detailed empirical validation against more diverse datasets and conditions, stronger comparative benchmarks, and rigorous statistical consistency checks. The paper should also present findings under conditions that match both controlled and open-field environments to generalize better beyond initial tests.
+user: If you were the harshest critic of this paper, what would your top concerns be? Provide a short bullet list of critiques.Name relevant SOTA papers or standard results from major AI conferences in the last 2-3 years that may relate to this approach. Evaluate whether the paper’s contributions outperform or differ significantly.Propose additional experiments or ablations that could strengthen the paper’s claims. How would these experiments be designed?
+assistant: As a harsh critic of this paper, my top concerns would include:
+
+1. **Lack of Comprehensive Baseline Comparisons**:
+   - The paper does not provide a thorough comparison with existing state-of-the-art methods for detecting test set contamination, such as those based on heuristic methods or detailed memorization analyses.
+   - It would benefit from more empirical comparisons to works like Carlini et al. (2021), which investigate data memorization in large language models, or Shi et al. (2024) with the Min-k%-Prob method.
+
+2. **Assumptions on Exchangeability**:
+   - The reliance on dataset exchangeability might not hold for all benchmark datasets, and this limitation is not thoroughly investigated or addressed in the paper.
+   - There is insufficient discussion around how often real-world datasets conform to these assumptions and how non-exchangeability could affect results.
+
+3. **Limited Real-World Dataset Testing**:
+   - Testing on more diverse and complex real-world datasets, including multilingual data or tasks, would provide a better indication of the method's practical utility and robustness.
+
+4. **Scalability and Efficiency**:
+   - The paper lacks explicit discussion or metrics regarding the computational cost associated with the proposed tests, particularly for very large models or datasets.
+   - Real-world applicability depends heavily on these factors, especially for practitioners with limited computational resources.
+
+5. **Reproducibility and Open Benchmarking**:
+   - While the paper discusses releasing data for future research, further details about the data, model implementation, and evaluation pipelines could enhance reproducibility.
+
+Relevant SOTA Papers or Results:
+
+- **Carlini et al. (2021)**: This work provides a thorough analysis of data memorization in language models and proposes methods to evaluate such memorization.
+- **Shi et al. (2024)**: Proposes the Min-k%-Prob heuristic which is also aimed at detecting contamination and could serve as a relevant baseline.
+- **Kandpal et al. (2022)**: Discusses deduplication's effect on language model memorization.
+
+Evaluation Against SOTA:
+- The contributions of this paper differ by focusing on providing provable false positive guarantees, unlike the heuristic nature of many current methods. However, rigorous comparisons are absent, limiting the evaluation of outperformance.
+
+Proposed Additional Experiments:
+
+1. **Comparative Baseline Experiments**:
+   - Design experiments explicitly comparing the proposed method with Carlini et al. (2021) and Shi et al. (2024), measuring contamination detection rates across varying dataset conditions.
+   - Utilize shared setup parameters (e.g., duplication rates) for a direct comparison of detection thresholds and computational costs.
+
+2. **Ablation Studies**:
+   - Conduct ablation studies on the number of shards and permutations, analyzing both computational efficiency and detection power.
+   - Examine sensitivity to different dataset properties (e.g., noise and ordering).
+
+3. **Non-Exchangeable Data Tests**:
+   - Test the method on datasets partially ordered or with explicit biases to evaluate robustness against violations of the exchangeability assumption.
+   - Include synthetic datasets designed to test resilience to such biases explicitly.
+
+4. **Scalability Analysis**:
+   - Measure the method's run-time and memory usage against larger models like GPT-3 and across diverse datasets, considering resource constraints.
+   - Use profiling tools to identify computational bottlenecks and optimize potentially intensive operations.
+
+Designing these experiments with a clear metric-focused evaluation would serve to substantiate the paper's claims and address limitations, thereby enhancing its contributions.
 user: Please write a review of the paper, for possible inclusion at a top AI conference like AAAI or IJCAI. Remember as a top-tier venue, the conference only accepts papers that make significant contributions to the field, maintaining a rigorous standard of quality. Owing to the high standard for acceptance, only about the top 20% of the submissions have been accepted.
 Your review should be structured as follows:
 

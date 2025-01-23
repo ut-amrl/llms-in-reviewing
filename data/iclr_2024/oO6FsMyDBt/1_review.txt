@@ -1,0 +1,25 @@
+Title: Graph Neural Networks for Learning Equivariant Representations of Neural Networks
+
+Summary: 
+This paper proposes a novel approach to represent neural networks as computational graphs, enabling the use of graph neural networks (GNNs) and transformers to exploit inherent permutation symmetry in neural network parameters. This approach allows for handling diverse architectures simultaneously, addressing challenges in tasks like implicit neural representation (INR) classification, style editing, generalization performance prediction, and optimization learning. The proposed method is empirically tested against baseline methods across various tasks, consistently exhibiting improved performance.
+
+Strengths:
+- **Innovation**: The paper introduces a novel graph-based representation of neural networks that integrates well with GNNs and transformers, tapping into their inherent permutation invariances.
+- **Flexibility**: The approach is versatile, potentially adapting to a wide range of architectures without the need for manual reconfiguration or intricate weight-sharing designs.
+- **Empirical Performance**: Empirical results highlight substantial performance improvements across tasks compared to recent state-of-the-art methods like DWSNet and NFN, particularly in INR tasks and CNN generalization predictions.
+- **Comprehensive Evaluation**: The inclusion of tasks from different areas (e.g., INR to learning to optimize) demonstrates the proposed method's versatility.
+
+Weaknesses:
+- **Scope of Datasets**: While the paper covers various tasks, the datasets are mainly confined to vision-based benchmarks. Results might not generalize to other domains such as NLP or non-vision structural data.
+- **Scalability Concerns**: There is limited discussion or demonstration regarding the computational efficiency and scalability of the proposed model when applied to large-scale datasets or more complex architectures.
+- **Comparison Breadth**: Although comparisons are drawn with some recent methods, the paper could benefit from broader benchmarking against additional state-of-the-art techniques, possibly from related domains.
+- **Detail in Graph Construction**: More detailed analysis or ablation studies on the construction of neural graphs could enhance the understanding of how different design decisions impact performance.
+
+Suggestions for Improvement:
+- Include experiments that extend beyond image data to cover more diverse domains, testing the general applicability of the approach.
+- Conduct scalability tests with larger datasets or more complex networks to verify the computational efficiency of the proposed method.
+- Broaden comparisons to include more recent state-of-the-art models, potentially from adjacent research areas, to further substantiate claims of superior performance.
+- Add detailed ablation studies on aspects of graph representation, such as varying node/edge features or investigating the impact of smaller graph detail changes on task performance.
+
+Overall Recommendation: 
+Accept. The paper presents substantial advances in leveraging graph neural networks to handle permutation symmetries in neural network parameters. It provides strong empirical evidence supporting the proposed approach and contributes to a growing area of research with potential broad applicability. However, addressing the highlighted weaknesses would increase confidence in its generalizability and robustness, making it a fit for a top-tier AI venue.

@@ -1,55 +1,30 @@
-Title: “Proving Test Set Contamination in Black-Box Language Models”
+Title: Proving Test Set Contamination in Black-Box Language Models
 
 Summary:
-The paper proposes a novel statistical test to detect “test set contamination” in large language models (LLMs) without requiring direct access to the pretraining dataset or the model’s weights. The authors leverage the assumption of exchangeability of many standardized benchmarks, noting that if a model has memorized a dataset in its original (canonical) order, it will assign notably higher likelihood to that sequence than to randomly permuted versions. They design a “sharded likelihood comparison” approach to improve efficiency and statistical power over a simple permutation test. Experiments on a 1.4B-parameter language model (trained from scratch with known forms of contamination) show the method’s ability to detect test set duplication at relatively low duplication rates (around four or more). Finally, they audit four publicly available LLMs and generally find no evidence of severe test set contamination, except for a small signal on certain benchmarks.
+The paper addresses the problem of detecting whether a language model has been trained on, or “contaminated” by, a given benchmark dataset, a concern that impacts the validity of reported performance gains on standard benchmarks. The authors introduce a permutation-based statistical test to diagnose contamination without access to the model’s training data or internal weights. By leveraging the property of exchangeability (where the order of examples in a truly held-out test set should not matter), they show that a contaminated model will exhibit systematically higher probabilities for the original “canonical” ordering of the test data than for random permutations. Their proposed sharded log-likelihood comparison test provides provable false-positive guarantees and displays high sensitivity in experiments—even when the target dataset appears only a few times in the training corpus. They also apply their method to a few well-known public language models and find limited evidence of large-scale contamination.
 
 Strengths:
-1. Novel Contamination Detection Method:  
-   • The exchangeability-based approach is elegant, exploiting a fundamental statistical property to achieve provable false-positive guarantees.  
-   • The “sharded” permutation method is computationally more tractable than a direct global permutation test while being effective for detecting contamination signals.
-
-2. Rigorous Theoretical Underpinnings:  
-   • The paper provides formal statistical arguments and asymptotic guarantees for the proposed test.  
-   • The authors carefully distinguish contamination as a dependence relationship between the model and a target dataset, emphasizing the significance of i.i.d. assumptions and how it yields exchangeability-based results.
-
-3. Well-Executed Experiments:  
-   • Training a new 1.4B-parameter model with carefully inserted “canary” datasets demonstrates empirical efficacy.  
-   • The test succeeds under various duplication rates (from 1 to 100, across multiple standard benchmarks such as BoolQ, MNLI, MMLU).  
-   • The paper also includes audits of popular models (LLaMA2, Mistral, Pythia, GPT-2 XL), showcasing how third-party testers can apply the method in practice.
-
-4. Potential Practical Utility:  
-   • Results suggest that the approach generalizes well to real-world black-box LLM scenarios with minimal overhead, allowing for routine external audits.  
-   • The paper highlights an open-source benchmark for future method comparisons, which fosters reproducibility.
+1. Novel Statistical Framework: The paper provides a formal statistical test (permutation-based, leveraging exchangeability) that turns the suspicion of data contamination into a hypothesis-testing problem with theoretical guarantees. This is a clear methodological contribution to the field of LLM evaluation.  
+2. Practical and Black-Box: The test only requires log-likelihood queries, making it directly applicable to commercial APIs or closed-source models where accessing training data or model weights is impossible.  
+3. Provable Guarantees: They carefully demonstrate that their permutation tests offer bounded false-positive rates, ensuring that flagged contamination events cannot be trivially dismissed as random variance or erroneous.  
+4. Empirical Rigor: Through canary experiments, the authors train a 1.4B-parameter language model on known contaminated data and show that the proposed test reliably detects contamination at duplication levels as low as 4× or 7× for small benchmarks. The approach exhibits strong detection power when duplication rates are higher (≥10×).  
+5. Public Benchmark Release: They release their contaminated model and data splits to encourage further research. This transparency adds to reproducibility and fosters community-wide improvements on contamination detection.
 
 Weaknesses:
-1. Single-Duplication Sensitivity:  
-   • Although the method shows strong detection above a certain duplication threshold, it generally fails reliably at duplication counts of one (a more subtle form of contamination). This is acknowledged, but it remains a key limitation in fully guaranteeing that a large model has never “glanced” at a small benchmark.
-
-2. Reliance on Dataset Exchangeability:  
-   • The authors acknowledge that many public benchmarks have partial ordering or other non-exchangeable quirks (e.g., repeated or indexed examples). This complicates usage and may generate spurious false positives or require manual filtering.
-
-3. Limited Detection Scope:  
-   • The current method identifies primarily “verbatim” or “near-verbatim” memorization-based contamination. It does not address more subtle contamination scenarios (e.g., when the training data includes a source that partially overlaps with benchmark content without including exact records).
-
-4. Dependent on Model Queries:  
-   • While the black-box nature is valuable, extensive log-likelihood queries can become expensive for very large datasets or for models with restrictive API constraints. Further optimizations or alternative query strategies may be needed in large-scale practical audits.
+1. Single-Duplication Limits: While the method works as soon as duplication rates reach around 2× or 4×, the results show it struggles to detect single duplications. This may limit the test’s applicability in edge cases where a dataset is accidentally included once or only a very small number of times.  
+2. Limited Real-World Benchmarks: The paper’s final experiments cover several popular benchmarks and do not generally find strong contamination signals. While this is reassuring, it would be helpful to expand the scope to new or larger-scale benchmarks that might appear in real training corpora.  
+3. Dataset Exchangeability Requirements: The theoretical guarantees presume i.i.d. or exchangeable data. In practice, many benchmarks (e.g., reading comprehension tasks derived from sequential documents) may contain structured sequences or repeated examples that break strict exchangeability. The authors address this by filtering out obviously sequential or repeated examples, but this might complicate real-world usage.  
+4. Limited Comparisons to Existing Heuristics: Although the authors reference related work on membership inference and n-gram overlap checks, more direct, side-by-side comparisons—especially with other black-box contamination detection approaches—would strengthen the experimental section.  
+5. Multiple Testing Procedures: The authors mention controlling false-positive rates but do not conduct rigorous multiple comparison corrections for their broad sets of real-world benchmarks. More detail on controlling the family-wise error rate or false discovery rate across numerous tests would improve the paper’s completeness.
 
 Suggestions for Improvement:
-1. Expand on Strategies to Address Single-Duplication Cases:  
-   • Investigate refined statistics or ensemble approaches to handle borderline contamination (e.g., duplication rate = 1). Future work might focus on distinguishing partial memorization from the baseline distribution more sensitively.
+• Investigate detection in the single-duplication regime in more depth. If it is provably infeasible, clarifying that with theoretical or empirical justification would be valuable.  
+• Expand the number and variety of real-world benchmark datasets tested, possibly including more recent or specialized benchmarks.  
+• Provide further details on how to handle structured or partially exchangeable datasets in practice—for instance, guidelines on how to prune or process data that includes large amounts of repeated content.  
+• Include more direct empirical comparisons against other contamination or membership inference methods, especially those that do not rely on exchangeability, to highlight the advantages/disadvantages of the proposed approach.  
+• Offer a thorough multiple hypothesis testing correction or at least a discussion on best practices for controlling false positives across many simultaneously tested benchmarks.
 
-2. Provide Automated Checks for (Non)-Exchangeability:  
-   • A consistent pipeline for detecting non-exchangeable elements in a benchmark (removing duplicates, indexes, or special ordering cues) could further strengthen the reliability of the test and mitigate false positives.
-
-3. Investigate More Complex Forms of Contamination:  
-   • Showing how or whether the approach can be extended to partial contamination (e.g., partially paraphrased content) would broaden its impact.  
-   • Combining this exchangeability-based test with advanced membership inference techniques might yield greater coverage.
-
-4. Offer More Detailed Cost Analysis:  
-   • While the sharded approach is more efficient than direct permutation tests, a breakdown of computational costs (especially for large or real-world benchmarks) would be helpful to gauge feasibility.
-
-Overall Recommendation:  
-Accept (with Enthusiasm)
+Overall Recommendation: Accept
 
 Rationale:  
-This paper tackles an increasingly crucial issue—unintentional or intentional inclusion of public benchmarks in the training data of LLMs—and does so with a novel, theoretically grounded test that offers provable guarantees. The experiments are carefully crafted, and the authors propose a framework that could be widely adopted by the community for third-party audits. While there are some natural limitations (e.g., single-duplication detection) and practical constraints (e.g., the assumption of exchangeability), overall, the paper signifies a notable step forward toward transparent and reliable benchmark evaluations. The soundness of the theoretical framework, combined with the compelling empirical evidence, suggests it merits acceptance at a top-tier conference.
+The paper makes a strong methodological contribution to detecting test-set contamination in black-box language models, a key challenge in accurately assessing modern LLMs. The statistical grounding, black-box usability, and demonstrated empirical efficacy for moderate duplication rates are compelling. Despite some limitations—particularly for single-duplication detection and real-world intricacies of exchangeability—this work represents an important step forward in reliable LLM auditing. Its novel approach and robust experimental validation merit acceptance at a top-tier conference.

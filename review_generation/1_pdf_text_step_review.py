@@ -16,11 +16,24 @@ cot_prompts = [
   "Does the empirical evaluation report well-established and reasonable metrics?",
   "Are the evaluation benchmarks and datasets appropriately chosen? Are there any better benchmarks or datasets that should have been used?",
   "Do the empirical results really support the claims of the paper?",
+  "Now read your own analysis. Identify any logical gaps or unsubstantiated claims and correct them.",
+  "If you were the harshest critic of this paper, what would your top concerns be? Provide a short bullet list of critiques."
+  "Name relevant SOTA papers or standard results from major AI conferences in the last 2-3 years that may relate to this approach. Evaluate whether the paper’s contributions outperform or differ significantly."
+  "Propose additional experiments or ablations that could strengthen the paper’s claims. How would these experiments be designed?"
 ]
+
+
+def compute_usage_cost(model_type, prompt_tokens, completion_tokens):
+    if model_type == "o1":
+        return prompt_tokens * 15/1e6 + completion_tokens * 60/1e6
+    elif model_type == "gpt-4o":
+        return prompt_tokens * 2.5/1e6 + completion_tokens * 60/1e6
 
 def generate_cot_review(openai_api_key, text):
     openai.api_key = openai_api_key
 
+    prompt_tokens = 0
+    completion_tokens = 0
     messages=[
         {"role": "system", "content": "You are an expert reviewer for AI conference papers."},
         {"role": "user", "content": f"Read the following paper, in preparation to review it. Maintain healthy scientific skepticism, don't assume that the claims in the paper are necessarily correct, and check everything carefully:\n{text}"},
@@ -36,12 +49,14 @@ def generate_cot_review(openai_api_key, text):
             model="gpt-4o",
             messages=messages
         )
+        prompt_tokens += cot_response['usage']['prompt_tokens']
+        completion_tokens += cot_response['usage']['completion_tokens']
         response = cot_response['choices'][0]['message']['content']
         print(response)
         print("=" * 80)
         messages.append({"role": "assistant", "content": f"{response}"})
 
-    return messages
+    return messages, prompt_tokens, completion_tokens
 
 def generate_review(openai_api_key, text):
     current_file_path = os.path.abspath(__file__)
@@ -49,14 +64,19 @@ def generate_review(openai_api_key, text):
     review_prompt = open(review_prompt_path, "r").read().strip()
 
     openai.api_key = openai_api_key
-    messages = generate_cot_review(openai_api_key, text)
+    messages, prompt_tokens, completion_tokens = generate_cot_review(openai_api_key, text)
     messages.append({"role": "user", "content": f"{review_prompt}"})
     print("Generating a review of the paper...")
     review_response = openai.ChatCompletion.create(
         model="gpt-4o",
         messages=messages
     )
+    prompt_tokens += review_response['usage']['prompt_tokens']
+    completion_tokens += review_response['usage']['completion_tokens']
     review = review_response['choices'][0]['message']['content']
+    print(f"Prompt tokens: {prompt_tokens}")
+    print(f"Completion tokens: {completion_tokens}")
+    print(f"Cost: ${compute_usage_cost('gpt-4o', prompt_tokens, completion_tokens):.2f}")
 
     return review, messages
 
